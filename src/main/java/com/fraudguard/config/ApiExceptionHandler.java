@@ -1,5 +1,6 @@
 package com.fraudguard.config;
 
+import com.fraudguard.evaluation.InvalidTransactionException;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +10,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    @ExceptionHandler(InvalidTransactionException.class)
+    ResponseEntity<Void> invalidTransaction(InvalidTransactionException e) {
+        return ResponseEntity.badRequest().build();
+    }
 
     /** Corpo em chunks que passou do limite chega aqui como erro de leitura: responde 413 em vez de 400. */
     @ExceptionHandler(HttpMessageNotReadableException.class)

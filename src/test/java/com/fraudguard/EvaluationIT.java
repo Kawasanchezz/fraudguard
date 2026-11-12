@@ -41,6 +41,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "fraudguard.messaging.enabled=false",
+                "fraudguard.clock-skew=P36500D",
                 "management.server.port=0",
                 "fraudguard.security.service-password=" + EvaluationIT.SERVICE_PW,
                 "fraudguard.security.analyst-password=" + EvaluationIT.ANALYST_PW,
@@ -163,7 +164,7 @@ class EvaluationIT {
         var mine = open.stream().filter(v -> v.transactionId().equals(t)).findFirst().orElseThrow();
 
         assertThat(http.withBasicAuth("service", SERVICE_PW)
-                .postForEntity("/cases/" + mine.caseId() + "/approve", null, String.class).getStatusCode())
+                .postForEntity("/cases/" + mine.caseId() + "/approve", Map.of(), String.class).getStatusCode())
                 .isEqualTo(HttpStatus.FORBIDDEN);
 
         var approved = http.withBasicAuth("analista", ANALYST_PW)
@@ -173,7 +174,7 @@ class EvaluationIT {
         assertThat(approved.getBody().analyst()).isEqualTo("analista");
 
         assertThat(http.withBasicAuth("analista", ANALYST_PW)
-                .postForEntity("/cases/" + mine.caseId() + "/block", null, String.class).getStatusCode())
+                .postForEntity("/cases/" + mine.caseId() + "/block", Map.of(), String.class).getStatusCode())
                 .isEqualTo(HttpStatus.CONFLICT);
     }
 
@@ -261,6 +262,45 @@ class EvaluationIT {
                 Map.<String, Object>of("multiplier", -1),
                 Map.<String, Object>of("nested", Map.of("a", 1)))) {
             assertThat(admin.exchange("/admin/rules/UNUSUAL_HOUR", HttpMethod.PUT,
+                    new HttpEntity<>(Map.of("params", bad)), String.class).getStatusCode())
+                    .as("params %s", bad).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Test
+    @Order(11)
+    void caseResolutionRequiresAValidBody() {
+        var analyst = http.withBasicAuth("analista", ANALYST_PW);
+        assertThat(analyst.postForEntity("/cases/1/approve", null, String.class).getStatusCode().is4xxClientError()).isTrue();
+        assertThat(analyst.postForEntity("/cases/1/approve", Map.of("note", "x".repeat(501)), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(analyst.postForEntity("/cases/1/approve", Map.of("note", "linha\nforjada"), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @Order(12)
+    void extremeOccurredAtIsRejectedInsteadOfTrippingTheCircuitBreaker() {
+        var service = http.withBasicAuth("service", SERVICE_PW);
+        for (String bad : List.of("+999999999-12-31T00:00:00Z", "-999999999-01-01T00:00:00Z")) {
+            var body = new java.util.HashMap<>(tx(id(), id(), "10", "d", "l", "r"));
+            body.put("occurredAt", bad);
+            assertThat(service.postForEntity("/fraud/evaluate", body, String.class).getStatusCode())
+                    .as("occurredAt %s", bad).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+        assertThat(velocityCircuitBreaker.getState().name()).isEqualTo("CLOSED");
+    }
+
+    @Test
+    @Order(13)
+    void ruleParamsRejectValuesThatWouldDisableOrFloodTheRule() {
+        var admin = http.withBasicAuth("admin", ADMIN_PW);
+        for (Map<String, Object> bad : List.of(
+                Map.<String, Object>of("windowSeconds", 0),
+                Map.<String, Object>of("windowSeconds", 999999999),
+                Map.<String, Object>of("multiplier", 0),
+                Map.<String, Object>of("maxTransactions", 0))) {
+            assertThat(admin.exchange("/admin/rules/VELOCITY", HttpMethod.PUT,
                     new HttpEntity<>(Map.of("params", bad)), String.class).getStatusCode())
                     .as("params %s", bad).isEqualTo(HttpStatus.BAD_REQUEST);
         }

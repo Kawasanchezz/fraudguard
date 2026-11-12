@@ -1,5 +1,6 @@
 package com.fraudguard.evaluation;
 
+import com.fraudguard.config.FraudProperties;
 import com.fraudguard.metrics.FraudMetrics;
 import com.fraudguard.profile.CustomerProfile;
 import com.fraudguard.profile.CustomerProfileRepository;
@@ -12,6 +13,7 @@ import com.fraudguard.velocity.VelocitySnapshot;
 import com.fraudguard.velocity.VelocityStore;
 import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -34,11 +36,13 @@ public class EvaluationService {
     private final ProfileUpdater profileUpdater;
     private final FraudMetrics metrics;
     private final Clock clock;
+    private final Duration maxClockSkew;
 
     public EvaluationService(RuleSetProvider ruleSets, CustomerProfileRepository profiles,
                              VelocityStore velocity, RuleEvaluator evaluator, FailSafePolicy failSafe,
                              FraudDecisionRepository decisions, DecisionRecorder recorder,
-                             ProfileUpdater profileUpdater, FraudMetrics metrics, Clock clock) {
+                             ProfileUpdater profileUpdater, FraudMetrics metrics, Clock clock,
+                             FraudProperties props) {
         this.ruleSets = ruleSets;
         this.profiles = profiles;
         this.velocity = velocity;
@@ -49,6 +53,7 @@ public class EvaluationService {
         this.profileUpdater = profileUpdater;
         this.metrics = metrics;
         this.clock = clock;
+        this.maxClockSkew = props.clockSkew();
     }
 
     /** @param channel "sync" (HTTP) ou "async" (fila), usado só em métricas. */
@@ -75,8 +80,8 @@ public class EvaluationService {
 
         result.reasons().forEach(h -> metrics.ruleFired(h.code()));
         metrics.decision(result.outcome(), channel);
-        if (result.outcome() != Outcome.BLOQUEAR) {
-            profileUpdater.learn(tx); // não aprendemos com o que foi bloqueado
+        if (result.outcome() == Outcome.APROVAR) {
+            profileUpdater.learn(tx); // só o aprovado ensina o perfil: evita envenenar a média com casos suspeitos
         }
         metrics.stop(sample, channel);
 
@@ -86,10 +91,22 @@ public class EvaluationService {
         return result;
     }
 
+    /** occurredAt vem do chamador: fora da tolerância permitiria burlar a janela do Redis ou estourar a conversão para milissegundos. */
+    private Instant eventTime(TransactionRequest tx) {
+        Instant now = clock.instant();
+        if (tx.occurredAt() == null) {
+            return now;
+        }
+        if (Duration.between(now, tx.occurredAt()).abs().compareTo(maxClockSkew) > 0) {
+            throw new InvalidTransactionException("occurredAt fora da janela permitida");
+        }
+        return tx.occurredAt();
+    }
+
     private EvaluationResult compute(TransactionRequest tx) {
         RuleSet ruleSet = ruleSets.current();
         CustomerProfile profile = profiles.findById(tx.customerId()).orElse(null);
-        Instant at = tx.occurredAt() != null ? tx.occurredAt() : clock.instant();
+        Instant at = eventTime(tx);
 
         VelocitySnapshot snapshot = velocity.observe(tx, at, ruleSet.velocityWindow());
         EvaluationResult result = evaluator.evaluate(new RuleContext(tx, profile, snapshot, at), ruleSet);

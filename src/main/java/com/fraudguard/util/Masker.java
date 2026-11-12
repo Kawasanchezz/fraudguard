@@ -1,6 +1,6 @@
 package com.fraudguard.util;
 
-/** LGPD: identificadores nunca vão inteiros para os logs. */
+/** LGPD: ids nunca vão inteiros para os logs; ids curtos somem por completo e caracteres de controle são removidos (evita forjar linhas de log). */
 public final class Masker {
     private Masker() {}
 
@@ -8,9 +8,10 @@ public final class Masker {
         if (value == null) {
             return "null";
         }
-        if (value.length() <= 4) {
+        String clean = value.replaceAll("\\p{Cntrl}", "");
+        if (clean.length() <= 8) {
             return "****";
         }
-        return value.substring(0, 2) + "***" + value.substring(value.length() - 2);
+        return clean.substring(0, 2) + "***" + clean.substring(clean.length() - 2);
     }
 }

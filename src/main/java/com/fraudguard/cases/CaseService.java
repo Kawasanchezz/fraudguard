@@ -6,6 +6,9 @@ import com.fraudguard.evaluation.RuleHit;
 import com.fraudguard.util.Masker;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -32,7 +35,10 @@ public class CaseService {
 
     @Transactional(readOnly = true)
     public List<CaseView> list(FraudCase.Status status) {
-        return cases.findTop100ByStatusOrderByCreatedAtAsc(status).stream().map(this::view).toList();
+        List<FraudCase> found = cases.findTop100ByStatusOrderByCreatedAtAsc(status);
+        Map<Long, FraudDecision> byId = decisions.findAllById(found.stream().map(FraudCase::getDecisionId).toList())
+                .stream().collect(Collectors.toMap(FraudDecision::getId, Function.identity()));
+        return found.stream().map(c -> view(c, byId.get(c.getDecisionId()))).toList();
     }
 
     @Transactional
@@ -44,11 +50,10 @@ public class CaseService {
         }
         c.resolve(finalStatus, analyst, note);
         log.info("caso {} resolvido como {} por {}", id, finalStatus, Masker.mask(analyst));
-        return view(c);
+        return view(c, decisions.findById(c.getDecisionId()).orElseThrow());
     }
 
-    private CaseView view(FraudCase c) {
-        FraudDecision d = decisions.findById(c.getDecisionId()).orElseThrow();
+    private CaseView view(FraudCase c, FraudDecision d) {
         return new CaseView(c.getId(), c.getStatus(), d.getTransactionId(), d.getScore(), d.getRulesFired(),
                 c.getCreatedAt(), c.getAnalyst(), c.getNote(), c.getResolvedAt());
     }

@@ -17,7 +17,7 @@ class SecurityConfigTest {
     private final SecurityConfig config = new SecurityConfig();
 
     private UserDetailsService users() {
-        var props = new FraudProperties(null, null, null, new FraudProperties.Security(STRONG, STRONG + "x", STRONG + "y"));
+        var props = new FraudProperties(null, null, null, null, new FraudProperties.Security(STRONG, STRONG + "x", STRONG + "y"));
         return config.users(props, config.passwordEncoder());
     }
 
@@ -41,11 +41,24 @@ class SecurityConfigTest {
     @Test
     void shortOrBlankPasswordsFailValidation() {
         var validator = Validation.buildDefaultValidatorFactory().getValidator();
-        var weak = new FraudProperties(null, null, null, new FraudProperties.Security("curta", "", STRONG));
+        var weak = new FraudProperties(null, null, null, null, new FraudProperties.Security("curta", "", STRONG));
         assertThat(validator.validate(weak.security()))
                 .extracting(v -> v.getPropertyPath().toString())
                 .containsOnly("servicePassword", "analystPassword");
         assertThat(validator.validate(new FraudProperties.Security(STRONG, STRONG, STRONG))).isEmpty();
+    }
+
+    @Test
+    void thresholdsMustBeOrderedAndPasswordsFitBcrypt() {
+        var validator = Validation.buildDefaultValidatorFactory().getValidator();
+        assertThat(validator.validate(new FraudProperties.Thresholds(40, 80))).isEmpty();
+        for (var bad : java.util.List.of(new FraudProperties.Thresholds(0, 80), new FraudProperties.Thresholds(80, 40),
+                new FraudProperties.Thresholds(40, 101))) {
+            assertThat(validator.validate(bad)).as("%s", bad).isNotEmpty();
+        }
+        String tooLong = "x".repeat(73);
+        assertThat(validator.validate(new FraudProperties.Security(STRONG, tooLong, STRONG))).isNotEmpty();
+        assertThat(validator.validate(new FraudProperties.Security(tooLong, STRONG, STRONG))).isEmpty();
     }
 
     @Test

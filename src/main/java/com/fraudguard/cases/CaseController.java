@@ -1,5 +1,7 @@
 package com.fraudguard.cases;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.security.core.Authentication;
@@ -18,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/cases")
 public class CaseController {
 
-    public record Resolution(@Size(max = 500) String note) {}
+    public record Resolution(@Size(max = 500) @Pattern(regexp = "^[^\\p{Cntrl}]*$") String note) {}
 
     private final CaseService service;
 
@@ -32,14 +34,14 @@ public class CaseController {
     }
 
     @PostMapping("/{id}/approve")
-    public CaseService.CaseView approve(@PathVariable Long id, @RequestBody(required = false) Resolution body,
+    public CaseService.CaseView approve(@PathVariable Long id, @Valid @RequestBody Resolution body,
                                         Authentication auth) {
-        return service.resolve(id, FraudCase.Status.APROVADO, auth.getName(), body == null ? null : body.note());
+        return service.resolve(id, FraudCase.Status.APROVADO, auth.getName(), body.note());
     }
 
     @PostMapping("/{id}/block")
-    public CaseService.CaseView block(@PathVariable Long id, @RequestBody(required = false) Resolution body,
+    public CaseService.CaseView block(@PathVariable Long id, @Valid @RequestBody Resolution body,
                                       Authentication auth) {
-        return service.resolve(id, FraudCase.Status.BLOQUEADO, auth.getName(), body == null ? null : body.note());
+        return service.resolve(id, FraudCase.Status.BLOQUEADO, auth.getName(), body.note());
     }
 }

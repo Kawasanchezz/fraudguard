@@ -78,6 +78,12 @@ public class RuleAdminService {
                 if (Double.isNaN(d) || Double.isInfinite(d) || d < 0 || d > 1_000_000_000d) {
                     throw bad("valor numérico fora do intervalo em " + key);
                 }
+                if (key.equals("windowSeconds") && (d < 1 || d > 86_400)) {
+                    throw bad("windowSeconds deve estar entre 1 e 86400");
+                }
+                if ((key.equals("multiplier") && d <= 0) || (key.equals("maxTransactions") && d < 1)) {
+                    throw bad(key + " deve ser positivo");
+                }
                 if (key.endsWith("Hour") && d > 23) {
                     throw bad(key + " deve estar entre 0 e 23");
                 }
