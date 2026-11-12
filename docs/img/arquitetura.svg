@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" width="960" height="440" role="img" aria-labelledby="t d" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title id="t">Arquitetura do FraudGuard</title>
+  <desc id="d">Transações chegam por HTTP síncrono ou por SNS e SQS, passam pelo motor de regras, que consulta o Redis e grava no PostgreSQL, abre casos de revisão manual e publica métricas para Prometheus e Grafana.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475569"/></marker>
+  </defs>
+  <rect width="960" height="440" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+
+  <rect x="30" y="170" width="150" height="70" rx="10" fill="#e2e8f0" stroke="#64748b"/>
+  <text x="105" y="200" text-anchor="middle" font-size="15" font-weight="600" fill="#0f172a">Transações</text>
+  <text x="105" y="221" text-anchor="middle" font-size="12" fill="#334155">Projetos 1 e 2</text>
+
+  <rect x="250" y="60" width="190" height="60" rx="10" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="345" y="86" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">POST /fraud/evaluate</text>
+  <text x="345" y="106" text-anchor="middle" font-size="12" fill="#1e3a8a">síncrono · p95 alvo &lt; 100 ms</text>
+
+  <rect x="250" y="290" width="190" height="60" rx="10" fill="#fef3c7" stroke="#d97706"/>
+  <text x="345" y="314" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">SNS → SQS</text>
+  <text x="345" y="334" text-anchor="middle" font-size="12" fill="#78350f">assíncrono · DLQ após 3 tentativas</text>
+
+  <rect x="520" y="150" width="180" height="110" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="610" y="188" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Motor de regras</text>
+  <text x="610" y="210" text-anchor="middle" font-size="12" fill="#14532d">Strategy · soma de pesos</text>
+  <text x="610" y="230" text-anchor="middle" font-size="12" fill="#14532d">APROVAR · REVISAR · BLOQUEAR</text>
+
+  <rect x="780" y="40" width="150" height="62" rx="10" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="855" y="66" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">Redis</text>
+  <text x="855" y="86" text-anchor="middle" font-size="12" fill="#7f1d1d">janelas e contadores</text>
+
+  <rect x="780" y="130" width="150" height="62" rx="10" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="855" y="156" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">PostgreSQL</text>
+  <text x="855" y="176" text-anchor="middle" font-size="12" fill="#4c1d95">decisões e regras versionadas</text>
+
+  <rect x="780" y="220" width="150" height="62" rx="10" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="855" y="246" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">Revisão manual</text>
+  <text x="855" y="266" text-anchor="middle" font-size="12" fill="#7c2d12">perfil ANALISTA</text>
+
+  <rect x="780" y="310" width="150" height="62" rx="10" fill="#cffafe" stroke="#0891b2"/>
+  <text x="855" y="336" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">Prometheus</text>
+  <text x="855" y="356" text-anchor="middle" font-size="12" fill="#164e63">→ Grafana</text>
+
+  <g stroke="#475569" stroke-width="2" fill="none" marker-end="url(#a)">
+    <path d="M180 190 L250 100"/>
+    <path d="M180 220 L250 310"/>
+    <path d="M440 90 L520 175"/>
+    <path d="M440 320 L520 235"/>
+    <path d="M700 170 L780 80"/>
+    <path d="M700 190 L780 161"/>
+    <path d="M700 220 L780 251"/>
+    <path d="M700 245 L780 341"/>
+  </g>
+  <text x="480" y="415" text-anchor="middle" font-size="12" fill="#475569">Se o Redis cair, o circuit breaker abre e a política fail-safe decide (ver README).</text>
+</svg>

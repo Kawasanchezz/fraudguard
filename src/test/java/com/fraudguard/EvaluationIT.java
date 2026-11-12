@@ -94,6 +94,17 @@ class EvaluationIT {
     }
     @Autowired CustomerProfileRepository profiles;
 
+    private static final String CSRF = "teste-csrf-token-0123456789";
+
+    /** Cabeçalho e cookie com o mesmo valor: é o que o painel web envia em POST/PUT em /cases e /admin. */
+    private static HttpEntity<Object> comCsrf(Object corpo) {
+        var cabecalhos = new org.springframework.http.HttpHeaders();
+        cabecalhos.add(org.springframework.http.HttpHeaders.COOKIE, "XSRF-TOKEN=" + CSRF);
+        cabecalhos.add("X-XSRF-TOKEN", CSRF);
+        cabecalhos.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        return new HttpEntity<>(corpo, cabecalhos);
+    }
+
     private static String id() {
         return UUID.randomUUID().toString().substring(0, 12);
     }
@@ -164,18 +175,18 @@ class EvaluationIT {
         var mine = open.stream().filter(v -> v.transactionId().equals(t)).findFirst().orElseThrow();
 
         assertThat(http.withBasicAuth("service", SERVICE_PW)
-                .postForEntity("/cases/" + mine.caseId() + "/approve", Map.of(), String.class).getStatusCode())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+                .exchange("/cases/" + mine.caseId() + "/approve", HttpMethod.POST, comCsrf(Map.of()), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 
         var approved = http.withBasicAuth("analista", ANALYST_PW)
-                .postForEntity("/cases/" + mine.caseId() + "/approve", Map.of("note", "cliente confirmou"),
-                        CaseService.CaseView.class);
+                .exchange("/cases/" + mine.caseId() + "/approve", HttpMethod.POST,
+                        comCsrf(Map.of("note", "cliente confirmou")), CaseService.CaseView.class);
         assertThat(approved.getBody().status().name()).isEqualTo("APROVADO");
         assertThat(approved.getBody().analyst()).isEqualTo("analista");
 
         assertThat(http.withBasicAuth("analista", ANALYST_PW)
-                .postForEntity("/cases/" + mine.caseId() + "/block", Map.of(), String.class).getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
+                .exchange("/cases/" + mine.caseId() + "/block", HttpMethod.POST, comCsrf(Map.of()), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     }
 
     @Test
@@ -189,7 +200,7 @@ class EvaluationIT {
         // Desativa a regra de valor alto: sem deploy.
         var admin = http.withBasicAuth("admin", ADMIN_PW);
         var resp = admin.exchange("/admin/rules/HIGH_AMOUNT_VS_AVERAGE", HttpMethod.PUT,
-                new HttpEntity<>(Map.of("enabled", false)), RuleAdminController.RuleView.class);
+                comCsrf(Map.of("enabled", false)), RuleAdminController.RuleView.class);
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         int newVersion = resp.getBody().version();
         assertThat(newVersion).isGreaterThan(1);
@@ -204,14 +215,14 @@ class EvaluationIT {
 
         // Restaura (novo registro de versão, histórico preservado).
         admin.exchange("/admin/rules/HIGH_AMOUNT_VS_AVERAGE", HttpMethod.PUT,
-                new HttpEntity<>(Map.of("enabled", true, "weight", 40)), RuleAdminController.RuleView.class);
+                comCsrf(Map.of("enabled", true, "weight", 40)), RuleAdminController.RuleView.class);
         var rules = admin.exchange("/admin/rules", HttpMethod.GET, null,
                 new ParameterizedTypeReference<List<RuleAdminController.RuleView>>() {}).getBody();
         assertThat(rules).hasSize(5);
         assertThat(admin.exchange("/admin/rules/HIGH_AMOUNT_VS_AVERAGE", HttpMethod.PUT,
-                new HttpEntity<>(Map.of("weight", 500)), String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                comCsrf(Map.of("weight", 500)), String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(admin.exchange("/admin/rules/NOPE", HttpMethod.PUT,
-                new HttpEntity<>(Map.of("weight", 5)), String.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+                comCsrf(Map.of("weight", 5)), String.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
@@ -262,7 +273,7 @@ class EvaluationIT {
                 Map.<String, Object>of("multiplier", -1),
                 Map.<String, Object>of("nested", Map.of("a", 1)))) {
             assertThat(admin.exchange("/admin/rules/UNUSUAL_HOUR", HttpMethod.PUT,
-                    new HttpEntity<>(Map.of("params", bad)), String.class).getStatusCode())
+                    comCsrf(Map.of("params", bad)), String.class).getStatusCode())
                     .as("params %s", bad).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
@@ -271,11 +282,12 @@ class EvaluationIT {
     @Order(11)
     void caseResolutionRequiresAValidBody() {
         var analyst = http.withBasicAuth("analista", ANALYST_PW);
-        assertThat(analyst.postForEntity("/cases/1/approve", null, String.class).getStatusCode().is4xxClientError()).isTrue();
-        assertThat(analyst.postForEntity("/cases/1/approve", Map.of("note", "x".repeat(501)), String.class).getStatusCode())
-                .isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(analyst.postForEntity("/cases/1/approve", Map.of("note", "linha\nforjada"), String.class).getStatusCode())
-                .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(analyst.exchange("/cases/1/approve", HttpMethod.POST, comCsrf(null), String.class)
+                .getStatusCode().is4xxClientError()).isTrue();
+        assertThat(analyst.exchange("/cases/1/approve", HttpMethod.POST, comCsrf(Map.of("note", "x".repeat(501))),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(analyst.exchange("/cases/1/approve", HttpMethod.POST, comCsrf(Map.of("note", "linha\nforjada")),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -301,9 +313,78 @@ class EvaluationIT {
                 Map.<String, Object>of("multiplier", 0),
                 Map.<String, Object>of("maxTransactions", 0))) {
             assertThat(admin.exchange("/admin/rules/VELOCITY", HttpMethod.PUT,
-                    new HttpEntity<>(Map.of("params", bad)), String.class).getStatusCode())
+                    comCsrf(Map.of("params", bad)), String.class).getStatusCode())
                     .as("params %s", bad).isEqualTo(HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @Test
+    @Order(14)
+    void simulatorIsPublicButTheApiBehindItStaysProtected() throws Exception {
+        for (String path : List.of("/simulador", "/simulador/", "/simulador/index.html", "/simulador/app.js",
+                "/simulador/vistas.js", "/simulador/demo.js", "/simulador/style.css")) {
+            var resp = http.getForEntity(path, String.class);
+            assertThat(resp.getStatusCode()).as(path).isEqualTo(HttpStatus.OK);
+        }
+        var page = http.getForEntity("/simulador/", String.class);
+        assertThat(page.getBody()).contains("FraudGuard");
+        assertThat(page.getHeaders().getFirst("Content-Security-Policy"))
+                .contains("script-src 'self'").contains("frame-ancestors 'none'").doesNotContain("unsafe-inline");
+        assertThat(page.getHeaders().getFirst("Referrer-Policy")).isEqualTo("no-referrer");
+
+        assertThat(http.postForEntity("/fraud/evaluate", Map.of(), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(http.getForEntity("/cases", String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(15)
+    void simulatorAssetsHaveNoInlineScriptsExternalResourcesOrUnsafeDomWrites() throws Exception {
+        String html = new String(new org.springframework.core.io.ClassPathResource("static/simulador/index.html")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String js = new String(new org.springframework.core.io.ClassPathResource("static/simulador/app.js")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                + new String(new org.springframework.core.io.ClassPathResource("static/simulador/vistas.js")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                + new String(new org.springframework.core.io.ClassPathResource("static/simulador/demo.js")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(html).doesNotContainPattern("(?i)<script(?![^>]*\\bsrc=)")
+                .doesNotContainPattern("(?i)\\son[a-z]+\\s*=").doesNotContain("http://").doesNotContain("https://");
+        assertThat(js).doesNotContain("innerHTML").doesNotContain("outerHTML").doesNotContain("insertAdjacentHTML")
+                .doesNotContain("document.write").doesNotContain("eval(").doesNotContain("localStorage")
+                .doesNotContain("sessionStorage").doesNotContain("document.cookie");
+    }
+
+    @Test
+    @Order(16)
+    void csrfTokenIsRequiredForBrowserFacingWritesButNotForTheServiceApi() {
+        var analyst = http.withBasicAuth("analista", ANALYST_PW);
+        var admin = http.withBasicAuth("admin", ADMIN_PW);
+
+        assertThat(analyst.postForEntity("/cases/1/approve", Map.of(), String.class).getStatusCode())
+                .as("sem token CSRF").isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(admin.exchange("/admin/rules/VELOCITY", HttpMethod.PUT,
+                new HttpEntity<>(Map.of("enabled", true)), String.class).getStatusCode())
+                .as("sem token CSRF").isEqualTo(HttpStatus.FORBIDDEN);
+
+        var divergente = new org.springframework.http.HttpHeaders();
+        divergente.add(org.springframework.http.HttpHeaders.COOKIE, "XSRF-TOKEN=um-valor");
+        divergente.add("X-XSRF-TOKEN", "outro-valor");
+        divergente.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        assertThat(analyst.exchange("/cases/1/approve", HttpMethod.POST, new HttpEntity<>(Map.of(), divergente), String.class)
+                .getStatusCode()).as("cookie diferente do cabeçalho").isEqualTo(HttpStatus.FORBIDDEN);
+
+        assertThat(evaluate(tx(id(), id(), "10", "d", "l", "r")).transactionId()).isNotBlank();
+    }
+
+    @Test
+    @Order(17)
+    void csrfEndpointIssuesAnHttpOnlySameSiteStrictCookie() {
+        var resposta = http.getForEntity("/csrf", Map.class);
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resposta.getBody()).containsKey("token").containsEntry("headerName", "X-XSRF-TOKEN");
+        String cookie = resposta.getHeaders().getFirst(org.springframework.http.HttpHeaders.SET_COOKIE);
+        assertThat(cookie).startsWith("XSRF-TOKEN=").contains("HttpOnly").contains("SameSite=Strict");
     }
 
     @Test

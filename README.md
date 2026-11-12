@@ -2,18 +2,7 @@
 
 Avalia cada transação (Pix, cartão, transferência) contra regras de risco e devolve `APROVAR`, `REVISAR` ou `BLOQUEAR` com score e motivos. Spring Boot 4 / Java 21, PostgreSQL, Redis, SNS+SQS (LocalStack), Micrometer + Prometheus + Grafana.
 
-```mermaid
-flowchart LR
-  TX[Transações: Projetos 1 e 2] --> API[POST /fraud/evaluate]
-  TX --> SNS[[SNS: transaction-events]]
-  SNS --> Q[[SQS: fraud-queue]]
-  Q --> ENG[Motor de regras]
-  API --> ENG
-  ENG --> R[(Redis: janelas e contadores)]
-  ENG --> DB[(PostgreSQL: decisões e regras)]
-  ENG --> REV[Fila de revisão manual]
-  ENG --> M[Micrometer → Prometheus → Grafana]
-```
+![Arquitetura do FraudGuard: transações entram por HTTP síncrono ou por SNS e SQS, passam pelo motor de regras, que usa Redis e PostgreSQL, abre casos de revisão manual e publica métricas](docs/img/arquitetura.svg)
 
 ## Rodando
 
@@ -44,6 +33,8 @@ Eventos assíncronos: publique o mesmo JSON do endpoint no tópico `transaction-
 
 **Motor de regras (Strategy + Open/Closed).** `FraudRule` tem uma implementação por classe em `rules`. O `RuleEvaluator` recebe *todas* as implementações por injeção, soma os pesos das que dispararam (teto 100) e compara com os limiares (`>= 40` REVISAR, `>= 80` BLOQUEAR). Nova regra = nova classe `@Component` + uma linha em `fraud_rule`; nada existente muda. Uma regra que lança exceção é ignorada e registrada, sem derrubar a avaliação.
 
+![Como o score é calculado: soma dos pesos das regras que disparam, com limiares de 40 e 80](docs/img/pontuacao.svg)
+
 **Regras versionadas.** Peso, `enabled` e `params` ficam em `fraud_rule`. Alterar = inserir nova linha com `version` maior (nunca UPDATE). O conjunto vigente fica em memória (recarregado a cada 30 s e na hora em que é alterado), então o caminho crítico não consulta o banco por regras. Cada decisão grava `rules_fired`, `score` e `ruleset_version`: dá para reconstruir por que uma transação foi bloqueada meses depois.
 
 **Janela deslizante no Redis.** Um único pipeline por avaliação: `ZADD` (timestamp, membro = `transactionId`, logo reenvios não contam em dobro) + `ZREMRANGEBYSCORE` + `ZCARD`, mais `SADD`/`SCARD` para dispositivo, localização e destinatário conhecidos. O primeiro valor visto é linha de base, não "novo".
@@ -57,9 +48,11 @@ Eventos assíncronos: publique o mesmo JSON do endpoint no tópico `transaction-
 | Valor `< 5000` | **`APROVAR`** (não travamos o cliente por falha nossa) |
 | Decisão já `REVISAR`/`BLOQUEAR` | nunca é rebaixada |
 
+![Política fail-safe quando o Redis está indisponível](docs/img/failsafe.svg)
+
 A decisão registra o motivo `FAILSAFE_CACHE_UNAVAILABLE`. Limiar em `fraudguard.failsafe.high-amount`. Com o circuito aberto, a resposta degradada sai sem esperar o timeout. Testado em `EvaluationIT` (Redis congelado de verdade) e `GuardedVelocityStoreTest` (abertura do circuito). Conexão com o Redis é aquecida na subida.
 
-**LGPD.** Decisão guarda só `transaction_id`, score, motivos e versão. No Redis, cliente/dispositivo/local/destinatário entram como hash SHA-256 truncado, com TTL. Logs mascaram ids (`Masker`) e nunca imprimem o corpo do evento. `customerId` deve ser um identificador interno pseudonimizado, nunca CPF. O perfil só aprende com transações não bloqueadas.
+**LGPD.** Decisão guarda só `transaction_id`, score, motivos e versão. No Redis, cliente/dispositivo/local/destinatário entram como hash SHA-256 truncado, com TTL. Logs mascaram ids (`Masker`) e nunca imprimem o corpo do evento. `customerId` deve ser um identificador interno pseudonimizado, nunca CPF. O perfil só aprende com transações aprovadas.
 
 **Observabilidade.** `fraud_evaluation_latency_seconds` (histograma com bucket em 100 ms), `fraud_decisions_total`, `fraud_rule_fired_total`, `fraud_failsafe_activations_total` e estado do circuit breaker. Dashboard em `infra/grafana/dashboards/fraudguard.json` (provisionado automaticamente).
 

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" role="img" aria-labelledby="t d" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title id="t">Como o score é calculado</title>
+  <desc id="d">Cada regra que dispara soma o seu peso. O score é limitado a 100. Abaixo de 40 aprova, de 40 a 79 envia para revisão manual e a partir de 80 bloqueia.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475569"/></marker>
+  </defs>
+  <rect width="960" height="400" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="30" y="40" font-size="16" font-weight="700" fill="#0f172a">Regras (peso padrão, alterável sem deploy)</text>
+
+  <g font-size="13" fill="#0f172a">
+    <rect x="30" y="60" width="400" height="44" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+    <text x="45" y="88">Valor muito acima da média do cliente</text>
+    <text x="410" y="88" text-anchor="end" font-weight="700">40</text>
+
+    <rect x="30" y="112" width="400" height="44" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+    <text x="45" y="140">Muitas transações em poucos minutos</text>
+    <text x="410" y="140" text-anchor="end" font-weight="700">40</text>
+
+    <rect x="30" y="164" width="400" height="44" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+    <text x="45" y="192">Horário incomum</text>
+    <text x="410" y="192" text-anchor="end" font-weight="700">15</text>
+
+    <rect x="30" y="216" width="400" height="44" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+    <text x="45" y="244">Dispositivo ou localização nova</text>
+    <text x="410" y="244" text-anchor="end" font-weight="700">25</text>
+
+    <rect x="30" y="268" width="400" height="44" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+    <text x="45" y="296">Destinatário novo com valor alto</text>
+    <text x="410" y="296" text-anchor="end" font-weight="700">30</text>
+  </g>
+
+  <path d="M430 186 L500 186" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#a)"/>
+  <rect x="500" y="146" width="150" height="80" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="575" y="180" text-anchor="middle" font-size="15" font-weight="700" fill="#0f172a">Soma dos pesos</text>
+  <text x="575" y="202" text-anchor="middle" font-size="12" fill="#334155">das regras que disparam</text>
+  <text x="575" y="219" text-anchor="middle" font-size="12" fill="#334155">(teto: 100)</text>
+
+  <path d="M650 186 L710 186" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#a)"/>
+
+  <g font-size="14" font-weight="700" fill="#0f172a">
+    <rect x="710" y="70" width="220" height="70" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="820" y="98" text-anchor="middle">APROVAR</text>
+    <text x="820" y="121" text-anchor="middle" font-size="12" font-weight="400">score abaixo de 40</text>
+
+    <rect x="710" y="160" width="220" height="70" rx="10" fill="#fef9c3" stroke="#ca8a04" stroke-width="2"/>
+    <text x="820" y="188" text-anchor="middle">REVISAR</text>
+    <text x="820" y="211" text-anchor="middle" font-size="12" font-weight="400">40 a 79 · cria caso para o analista</text>
+
+    <rect x="710" y="250" width="220" height="70" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+    <text x="820" y="278" text-anchor="middle">BLOQUEAR</text>
+    <text x="820" y="301" text-anchor="middle" font-size="12" font-weight="400">score a partir de 80</text>
+  </g>
+
+  <text x="30" y="360" font-size="12" fill="#475569">Cada decisão guarda as regras que dispararam, o score e a versão do conjunto de regras (auditoria).</text>
+  <text x="30" y="380" font-size="12" fill="#475569">Os limiares (40 e 80) são configuráveis e validados na subida da aplicação.</text>
+</svg>
