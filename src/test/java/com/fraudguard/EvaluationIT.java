@@ -380,7 +380,8 @@ class EvaluationIT {
     @Test
     @Order(17)
     void csrfEndpointIssuesAnHttpOnlySameSiteStrictCookie() {
-        var resposta = http.getForEntity("/csrf", Map.class);
+        var resposta = http.exchange("/csrf", HttpMethod.GET, null,
+                new ParameterizedTypeReference<Map<String, String>>() {});
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resposta.getBody()).containsKey("token").containsEntry("headerName", "X-XSRF-TOKEN");
         String cookie = resposta.getHeaders().getFirst(org.springframework.http.HttpHeaders.SET_COOKIE);
