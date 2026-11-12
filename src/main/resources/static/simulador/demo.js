@@ -6,7 +6,12 @@
  * este modo fica desligado e a API continua exigindo as senhas de cada perfil.
  */
 
-const MODO_DEMO = location.hostname.endsWith("github.io") || new URLSearchParams(location.search).has("demo");
+/** Só subdomínios reais do GitHub Pages: "evilgithub.io" não pode ligar o modo demo por parecer com github.io. */
+function ehGitHubPages(host) {
+  return host.endsWith(".github.io");
+}
+
+const MODO_DEMO = ehGitHubPages(location.hostname) || new URLSearchParams(location.search).has("demo");
 
 function buscar(url, opcoes) {
   return MODO_DEMO ? demoBuscar(url, opcoes) : fetch(url, opcoes);
