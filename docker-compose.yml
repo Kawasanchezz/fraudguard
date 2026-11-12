@@ -20,7 +20,7 @@ services:
       localstack: { condition: service_healthy }
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     environment:
       POSTGRES_DB: fraudguard
       POSTGRES_USER: fraud
@@ -31,14 +31,15 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 10
 
   localstack:
-    image: localstack/localstack:3
+    image: localstack/localstack:3@sha256:b279c01f4cfb8f985a482e4014cabc1e2697b9d7a6c8c8db2e40f4d9f93687c7
     environment:
       SERVICES: sns,sqs
     ports: ["127.0.0.1:4566:4566"]
@@ -50,13 +51,13 @@ services:
       retries: 20
 
   prometheus:
-    image: prom/prometheus:v2.54.1
+    image: prom/prometheus:v2.54.1@sha256:f6639335d34a77d9d9db382b92eeb7fc00934be8eae81dbc03b31cfe90411a94
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports: ["127.0.0.1:9090:9090"]
 
   grafana:
-    image: grafana/grafana:11.2.0
+    image: grafana/grafana:11.2.0@sha256:408afb9726de5122b00a2576763a8a57a3c86d5b0eff5305bc994ceb3eb96c3f
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?defina GRAFANA_ADMIN_PASSWORD no .env}
       GF_AUTH_ANONYMOUS_ENABLED: "false"
@@ -68,7 +69,7 @@ services:
 
   # docker compose --profile loadtest run --rm k6
   k6:
-    image: grafana/k6:0.54.0
+    image: grafana/k6:0.54.0@sha256:1f40432b1cbe7234e977f96c362c9bc550a2d2b583d014dd8669fe40d3e9e755
     profiles: ["loadtest"]
     environment:
       BASE_URL: http://app:8080

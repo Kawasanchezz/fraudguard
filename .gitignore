@@ -534,3 +534,6 @@ dependency-reduced-pom.xml
 .project
 .classpath
 .settings/
+
+# --- FraudGuard: artefatos gerados por varreduras ---
+sbom.cdx.json

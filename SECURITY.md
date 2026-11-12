@@ -38,3 +38,10 @@ Há um hook de pre-commit com gitleaks (`.pre-commit-config.yaml`, configuraçã
 - A atualização do perfil do cliente é assíncrona, sem lock e descartada sob sobrecarga; é aproximada por natureza.
 - A meta de latência p95 < 100 ms **não** foi atingida nas medições feitas (ver README).
 - Não há CodeQL nem varredura de imagem automatizadas no CI; recomenda-se ativar secret scanning, push protection e branch protection no GitHub.
+- Tentativas de autenticação com senha errada de `ANALISTA` ou `ADMIN` custam um BCrypt cada, e a diferença de tempo entre `service` (rápido) e os demais pode revelar quais usuários existem. Mitigação esperada: rate limiting no gateway.
+- `deviceId`, `location` e `recipientId` são opcionais; omiti-los impede as regras de "novo dispositivo, local ou destinatário" de dispararem. O histórico dessas regras vive no Redis (TTL de 90 dias) e é perdido se o Redis for limpo; o compose limita a memória com `volatile-lru`.
+- A idempotência usa só o `transactionId`: reenviar o mesmo id devolve a decisão original, mesmo com valores diferentes. O chamador `SERVICE` é tratado como confiável.
+- Há uma conta única por perfil (`analista`, `admin`), então `fraud_case.analyst` não distingue pessoas; alterações de regra não registram o autor.
+- Duas atualizações simultâneas de regras diferentes podem receber o mesmo número de versão do conjunto.
+- Resolver um caso não altera a decisão já gravada nem notifica sistemas externos.
+- Ainda não foi feito teste de intrusão independente. Revisões feitas: auditoria manual, revisão independente por leitura de código, Semgrep, Checkov, actionlint, hadolint, trivy e gitleaks.
