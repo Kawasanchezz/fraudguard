@@ -307,6 +307,43 @@ class EvaluationIT {
     }
 
     @Test
+    @Order(14)
+    void simulatorIsPublicButTheApiBehindItStaysProtected() throws Exception {
+        for (String path : List.of("/simulador", "/simulador/", "/simulador/index.html", "/simulador/app.js",
+                "/simulador/vistas.js", "/simulador/demo.js", "/simulador/style.css")) {
+            var resp = http.getForEntity(path, String.class);
+            assertThat(resp.getStatusCode()).as(path).isEqualTo(HttpStatus.OK);
+        }
+        var page = http.getForEntity("/simulador/", String.class);
+        assertThat(page.getBody()).contains("FraudGuard");
+        assertThat(page.getHeaders().getFirst("Content-Security-Policy"))
+                .contains("script-src 'self'").contains("frame-ancestors 'none'").doesNotContain("unsafe-inline");
+        assertThat(page.getHeaders().getFirst("Referrer-Policy")).isEqualTo("no-referrer");
+
+        assertThat(http.postForEntity("/fraud/evaluate", Map.of(), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(http.getForEntity("/cases", String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(15)
+    void simulatorAssetsHaveNoInlineScriptsExternalResourcesOrUnsafeDomWrites() throws Exception {
+        String html = new String(new org.springframework.core.io.ClassPathResource("static/simulador/index.html")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String js = new String(new org.springframework.core.io.ClassPathResource("static/simulador/app.js")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                + new String(new org.springframework.core.io.ClassPathResource("static/simulador/vistas.js")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                + new String(new org.springframework.core.io.ClassPathResource("static/simulador/demo.js")
+                .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(html).doesNotContainPattern("(?i)<script(?![^>]*\\bsrc=)")
+                .doesNotContainPattern("(?i)\\son[a-z]+\\s*=").doesNotContain("http://").doesNotContain("https://");
+        assertThat(js).doesNotContain("innerHTML").doesNotContain("outerHTML").doesNotContain("insertAdjacentHTML")
+                .doesNotContain("document.write").doesNotContain("eval(").doesNotContain("localStorage")
+                .doesNotContain("sessionStorage").doesNotContain("document.cookie");
+    }
+
+    @Test
     @Order(10)
     void actuatorIsNotServedOnThePublicPort() {
         assertThat(http.getForEntity("/actuator/prometheus", String.class).getStatusCode().is2xxSuccessful()).isFalse();
