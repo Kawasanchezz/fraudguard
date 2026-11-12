@@ -25,14 +25,36 @@ function msgVista(id, conteudo, tipo) {
   el.className = "msg-vista" + (tipo ? " " + tipo : "");
 }
 
+let tokenCsrf = null;
+
+async function obterTokenCsrf() {
+  if (tokenCsrf) {
+    return tokenCsrf;
+  }
+  const resposta = await buscar("/csrf", { method: "GET", credentials: "same-origin", cache: "no-store" });
+  if (!resposta.ok) {
+    throw new Error("Não foi possível obter o token de segurança (CSRF).");
+  }
+  tokenCsrf = await resposta.json();
+  return tokenCsrf;
+}
+
 async function chamar(metodo, caminho, usuario, segredo, corpo) {
   const cabecalhos = { Authorization: basic(usuario, segredo) };
   const opcoes = { method: metodo, headers: cabecalhos, credentials: "omit", cache: "no-store" };
+  if (metodo !== "GET") {
+    const csrf = await obterTokenCsrf();
+    cabecalhos[csrf.headerName] = csrf.token;
+    opcoes.credentials = "same-origin";
+  }
   if (corpo !== undefined) {
     cabecalhos["Content-Type"] = "application/json";
     opcoes.body = JSON.stringify(corpo);
   }
   const resposta = await buscar(caminho, opcoes);
+  if (resposta.status === 403 && metodo !== "GET") {
+    tokenCsrf = null;
+  }
   if (resposta.status === 401) {
     throw new Error("Senha inválida para o usuário " + usuario + ".");
   }

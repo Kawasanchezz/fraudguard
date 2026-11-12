@@ -118,6 +118,10 @@ async function demoBuscar(url, opcoes) {
   const alvo = new URL(url, location.href);
   const caminho = alvo.pathname;
 
+  if (metodo === "GET" && caminho === "/csrf") {
+    return demoResposta(200, { headerName: "X-XSRF-TOKEN", token: "demo" });
+  }
+
   if (metodo === "POST" && caminho === "/fraud/evaluate") {
     const tx = demoCorpo(opcoes);
     if (!tx || !tx.transactionId || !tx.customerId || !(tx.amount > 0)) {

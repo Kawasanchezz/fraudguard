@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -16,6 +15,8 @@ import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 
 /**
@@ -32,11 +33,15 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(AbstractHttpConfigurer::disable)
+        http.csrf(csrf -> csrf
+                        .csrfTokenRepository(repositorioCsrf())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .ignoringRequestMatchers("/fraud/**"))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/actuator/health/**", "/actuator/prometheus").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/csrf").permitAll()
                         .requestMatchers("/simulador", "/simulador/**").permitAll()
                         .requestMatchers("/fraud/**").hasRole("SERVICE")
                         .requestMatchers("/cases/**").hasRole("ANALISTA")
@@ -47,6 +52,16 @@ public class SecurityConfig {
                         .referrerPolicy(r -> r.policy(ReferrerPolicy.NO_REFERRER)))
                 .httpBasic(Customizer.withDefaults());
         return http.build();
+    }
+
+    /**
+     * Token CSRF em cookie (HttpOnly, SameSite=Strict) comparado com o cabeçalho X-XSRF-TOKEN, valendo para
+     * /cases e /admin (usados por navegador). /fraud fica de fora: é chamada de serviço para serviço, sem navegador.
+     */
+    private static CookieCsrfTokenRepository repositorioCsrf() {
+        CookieCsrfTokenRepository repositorio = new CookieCsrfTokenRepository();
+        repositorio.setCookieCustomizer(cookie -> cookie.httpOnly(true).sameSite("Strict").path("/"));
+        return repositorio;
     }
 
     @Bean
