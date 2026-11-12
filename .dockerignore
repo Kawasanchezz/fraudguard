@@ -1,0 +1,570 @@
+# ======================================================================
+# .dockerignore
+# ----------------------------------------------------------------------
+# Objetivos:
+#   1. Build rapido: contexto pequeno enviado ao Docker daemon.
+#   2. Seguranca: NENHUM segredo, chat, credencial ou dado local entra
+#      na imagem, nem por um "COPY . ." acidental.
+#   3. Imagem enxuta e reproduzivel: so o que o build precisa.
+#
+# DIFERENCA IMPORTANTE PARA O .gitignore:
+#   No .dockerignore os padroes sao comparados a partir da RAIZ do
+#   contexto. "*.pem" ou ".env" pegam apenas o nivel principal; por isso
+#   todos os padroes abaixo usam o prefixo "**/" para valer em qualquer
+#   subpasta. Excecoes tambem usam "**/" (ex.: !**/.env.example).
+#
+# Regras de uso:
+#   - Este arquivo NAO substitui o .gitignore (cada um protege um lugar).
+#   - Segredos entram so em runtime (variaveis de ambiente, Docker/K8s
+#     secrets) ou no build via BuildKit: RUN --mount=type=secret.
+#   - Nunca use ARG/ENV para senhas: ficam gravados nas camadas da imagem.
+#   - Se o build falhar com "arquivo nao encontrado", confira primeiro se
+#     ele nao foi ignorado aqui (tests/, migrations, *.md, config...).
+# ======================================================================
+
+
+# --- controle de versao e CI ---
+**/.git
+**/.gitignore
+**/.gitattributes
+**/.gitmodules
+**/.github
+**/.gitlab
+**/.gitlab-ci.yml
+**/.circleci
+**/.travis.yml
+**/.drone.yml
+**/azure-pipelines.yml
+**/Jenkinsfile
+**/bitbucket-pipelines.yml
+**/.pre-commit-config.yaml
+**/.husky
+**/.changeset
+**/renovate.json
+**/.renovaterc*
+**/.mailmap
+**/CODEOWNERS
+
+# --- dependencias / build (frontend) ---
+**/node_modules
+**/dist
+**/dist-ssr
+**/build
+**/*.tsbuildinfo
+**/.pnpm-store
+**/.yarn/cache
+**/.yarn/install-state.gz
+**/.yarn/unplugged
+**/.npm
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+# NAO ignore package.json nem package-lock.json / yarn.lock / pnpm-lock.yaml:
+# o build precisa deles para instalar as dependencias.
+
+# --- Expo / React Native (especifico da stack) ---
+**/.expo
+**/.expo-shared
+**/web-build
+**/expo-env.d.ts
+**/.metro-health-check*
+**/.kotlin
+**/.gradle
+**/local.properties
+**/Pods
+**/*.xcworkspace
+**/xcuserdata
+**/DerivedData
+**/.eas
+# builds binarios e assinatura mobile
+**/*.aab
+**/*.ipa
+**/*.apk
+**/*.p8
+**/*.mobileprovision
+**/google-services.json
+**/GoogleService-Info.plist
+**/upload-keystore.*
+**/keystore.properties
+**/key.properties
+**/signing.properties
+# pastas nativas geradas pelo prebuild (o projeto e gerenciado pelo Expo)
+# (anchored na raiz: so ignora /ios e /android do projeto)
+/ios
+/android
+
+# --- dependencias / build (.NET) ---
+**/bin
+**/obj
+**/publish
+**/*.user
+**/*.suo
+**/*.userosscache
+**/*.sln.docstates
+**/*.publishsettings
+**/*.pubxml
+**/*.pubxml.user
+**/*.rsuser
+**/*.nupkg
+**/*.snupkg
+**/project.lock.json
+**/.vs
+**/.ionide
+**/.fake
+**/.dotnet
+**/.mono
+**/TestResults
+**/[Tt]est[Rr]esult*
+**/BenchmarkDotNet.Artifacts
+# ATENCAO: appsettings.json NAO e ignorado aqui de proposito. O dotnet
+# publish o copia para a imagem e o app pode depender dele. Segredos reais
+# devem vir por variavel de ambiente / user-secrets, nunca dentro dele.
+# Apenas as variantes locais e de desenvolvimento sao ignoradas:
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+**/launchSettings.json
+
+# --- dependencias / build (Python / Flask) ---
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
+**/env
+**/*.egg-info
+**/pip-wheel-metadata
+**/.hypothesis
+**/.ipynb_checkpoints
+# instance/ e a pasta de configuracao local do Flask: guarda config com
+# segredos (SECRET_KEY, credenciais) e NUNCA deve entrar na imagem.
+**/instance
+**/.flaskenv
+**/*.pid
+**/*.sock
+
+# --- dependencias / build (Rust) ---
+**/target
+**/*.rs.bk
+**/*.pdb
+**/*.rlib
+**/*.rmeta
+**/*.profraw
+**/*.profdata
+**/lcov.info
+**/cobertura.xml
+**/tarpaulin-report.*
+**/flamegraph.svg
+**/perf.data*
+**/fuzz/artifacts
+**/fuzz/corpus
+**/mutants.out*
+**/.cargo/credentials
+**/.cargo/credentials.toml
+**/.cargo/config.local.toml
+# ATENCAO: .cargo/config.toml, Cargo.toml e Cargo.lock NAO sao ignorados:
+# o build precisa deles (linker, target, versoes travadas).
+
+# --- caches de ferramentas ---
+**/.vite
+**/.cache
+**/.parcel-cache
+**/.eslintcache*
+**/.stylelintcache
+**/.turbo
+**/.next
+**/.nuxt
+**/.svelte-kit
+**/.output
+**/.angular
+**/.docusaurus
+**/.swc
+**/.sass-cache
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.tox
+**/.nox
+**/htmlcov
+**/.coverage
+**/.coverage.*
+**/.nyc_output
+**/coverage
+
+# --- segredos e ambiente (NUNCA entram na imagem) ---
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+**/.envrc
+**/.dev.vars
+**/*.env.json
+# pastas usadas por convencao para guardar material sensivel
+**/secrets
+**/.secrets
+**/credentials
+**/private
+# chaves, certificados e keystores
+# ATENCAO: se a imagem precisa de uma CA propria, libere o arquivo
+# especifico com uma excecao (ex.: !certs/ca-interna.crt).
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.pfxpassword
+**/*.pkcs12
+**/*.p7b
+**/*.crt
+**/*.cer
+**/*.der
+**/*.csr
+**/*.jks
+**/*.keystore
+**/*.asc
+**/*.gpg
+**/*.kdbx
+**/*.ppk
+**/.gnupg
+**/.ssh
+**/id_rsa
+**/id_rsa.pub
+**/id_dsa
+**/id_dsa.pub
+**/id_ecdsa
+**/id_ecdsa.pub
+**/id_ed25519
+**/id_ed25519.pub
+**/known_hosts
+# credenciais de ferramentas
+# (.npmrc: se o build usa registry privado, use --mount=type=secret)
+**/.npmrc
+**/.netrc
+**/.pypirc
+**/.pgpass
+**/.my.cnf
+**/.htpasswd
+**/.git-credentials
+**/.docker/config.json
+
+# --- segredos em JSON / TOML / YAML ---
+**/secrets.json
+**/secrets.*.json
+**/credentials.json
+**/credentials.*.json
+**/credentials.xml
+**/service-account*.json
+**/*-service-account.json
+**/serviceAccount*.json
+**/gcp-credentials.json
+**/gcp-service-account*.json
+**/firebase-adminsdk-*.json
+**/firebase-config.json
+**/aws-credentials.json
+**/azureauth.json
+**/client_secret*.json
+**/auth.json
+**/token.json
+**/tokens.json
+**/*.token.json
+**/oauth.json
+**/private-keys.json
+**/*-private-key.json
+**/*.secrets.toml
+**/*.secrets.yaml
+**/*.secrets.yml
+**/*.secret
+**/*.secrets
+# ATENCAO: config.json NAO e ignorado de proposito (muitos projetos o usam
+# como configuracao publica necessaria ao runtime). Se o seu guarda
+# segredos, adicione: **/config.json
+
+# --- ferramentas de teste de API (vazam tokens com frequencia) ---
+**/*.postman_environment.json
+**/insomnia.workspace.json
+**/.insomnia
+**/*.har
+
+# --- cloud / infraestrutura (estado e credenciais) ---
+**/.aws
+**/.azure
+**/.gcloud
+**/.kube
+**/kubeconfig
+**/*.kubeconfig
+**/*.tfstate
+**/*.tfstate.backup
+**/*.tfvars
+!**/*.tfvars.example
+**/.terraform
+**/.terraformrc
+**/terraform.rc
+**/.vercel
+**/.netlify
+**/letsencrypt
+**/certs
+**/ssl
+
+# --- Claude / Anthropic: pastas, memoria, sessoes e chats ---
+**/.claude
+**/.claude.json
+**/.claude.json.*
+**/.claude-code
+**/.claude-cache
+**/.anthropic
+**/CLAUDE.md
+**/CLAUDE.local.md
+**/claude.local.md
+**/.claudeignore
+**/.claude-session*
+**/claude-session*
+**/claude-chat*
+**/claude_chat*
+# exports de conversas e transcricoes
+**/chat-export*
+**/chat_export*
+**/chat-history*
+**/conversation-export*
+**/transcript-*
+# configuracao local de MCP (pode conter tokens)
+**/.mcp.json
+**/.mcp.*.json
+**/mcp.local.json
+**/mcp-servers.local.json
+
+# --- outras ferramentas de IA (historico, cache, configs locais) ---
+**/.cursor
+**/.cursorignore
+**/.cursorindexingignore
+**/.cursorrules
+**/.cursorrules.local
+**/.windsurf
+**/.windsurfrules
+**/.aider*
+**/.continue
+**/.codeium
+**/.tabnine
+**/.codex
+**/.gemini
+**/.copilot
+**/.specstory
+**/.cline
+**/.clinerules
+**/.roo
+**/.roomodes
+**/.kiro
+**/.junie
+**/.zed
+**/.trae
+**/.agent
+**/.agents
+**/.ai
+**/AGENTS.local.md
+**/GEMINI.local.md
+
+# --- documentacao e metadados (nao sao necessarios para compilar/rodar) ---
+**/*.md
+**/docs
+**/doc
+**/LICENSE*
+**/NOTICE*
+**/CHANGELOG*
+**/CONTRIBUTING*
+**/CODE_OF_CONDUCT*
+**/SECURITY*
+# Se o codigo usa include_str!("../README.md") ou le algum .md em runtime,
+# libere o arquivo com uma excecao: !README.md
+
+# --- arquivos do proprio Docker e automacao ---
+# O Docker le o Dockerfile direto, mesmo ignorado: isso nao quebra o build.
+**/Dockerfile*
+**/*.Dockerfile
+**/docker-compose*.yml
+**/docker-compose*.yaml
+**/compose*.yml
+**/compose*.yaml
+**/docker-compose.override.yml
+**/.dockerignore
+**/.docker
+**/*.dockerenv
+# ATENCAO: se o Dockerfile executa make/just/task dentro da imagem,
+# remova a linha correspondente abaixo.
+**/Makefile
+**/justfile
+**/Taskfile.yml
+**/Taskfile.yaml
+# volumes e dados persistentes montados localmente
+**/data
+**/volumes
+**/.data
+**/postgres-data
+**/mysql-data
+**/redis-data
+
+# --- testes, qualidade e ferramentas de desenvolvimento (fora da imagem final) ---
+# ATENCAO: se o build/workspace depende de tests/, benches/ ou examples/
+# (ex.: membros do workspace no Cargo.toml), remova a linha correspondente.
+**/tests
+**/benches
+**/examples
+**/test-results
+**/.editorconfig
+**/rustfmt.toml
+**/.rustfmt.toml
+**/clippy.toml
+**/.clippy.toml
+**/deny.toml
+**/.cargo-deny
+**/audit.toml
+**/codecov.yml
+**/.codecov.yml
+**/sonar-project.properties
+**/.sonarlint
+**/.semgrep
+**/.semgrepignore
+**/.gitleaks.toml
+**/.trivyignore
+**/.hadolint.yaml
+
+# --- banco de dados local / dumps ---
+**/*.sqlite
+**/*.sqlite3
+**/*.sqlite-journal
+**/*.sqlite-wal
+**/*.sqlite-shm
+**/*.sqlite3-wal
+**/*.sqlite3-shm
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/*.mdf
+**/*.ldf
+**/*.ndf
+**/*.bacpac
+**/*.dacpac
+**/*.dump
+**/*.pgdump
+**/*.backup
+**/*.bak
+**/*.sql
+**/*.sql.gz
+**/dump.rdb
+**/*.rdb
+**/dump
+**/dumps
+**/backup
+**/backups
+# ATENCAO: *.sql tambem ignora migrations e scripts de init. Se o app ou a
+# imagem do banco usa arquivos .sql do repositorio, libere-os: !migrations/**
+
+# --- logs, crash dumps e relatorios de scanners ---
+**/*.log
+**/*.log.gz
+**/logs
+**/*.core
+**/core.[0-9]*
+**/hs_err_pid*
+**/heapdump*
+**/*.hprof
+**/*.dmp
+**/*.mdmp
+**/*.stackdump
+**/*.pcap
+**/*.pcapng
+**/gitleaks-report*
+**/trufflehog*.json
+**/semgrep-report*
+**/audit-report*
+**/security-report*
+**/npm-audit*.json
+**/pip-audit*.json
+**/cargo-audit*.json
+**/*.sarif
+
+# --- editor / IDE ---
+**/.idea
+**/*.iml
+**/*.ipr
+**/*.iws
+**/.vscode
+**/*.code-workspace
+**/.fleet
+**/.nova
+**/.project
+**/.classpath
+**/.settings
+**/.metadata
+**/*.sublime-workspace
+**/*.sublime-project
+**/*.ntvs*
+**/*.njsproj
+**/*.swp
+**/*.swo
+**/*.swn
+**/*.kate-swp
+**/*~
+**/.#*
+**/.history
+
+# --- sistema operacional ---
+**/.DS_Store
+**/.AppleDouble
+**/.LSOverride
+**/._*
+**/.Spotlight-V100
+**/.Trashes
+**/.fseventsd
+**/.TemporaryItems
+**/Thumbs.db
+**/ehthumbs.db
+**/Desktop.ini
+**/$RECYCLE.BIN
+**/*.lnk
+**/.directory
+**/.Trash-*
+**/.nfs*
+
+# --- shell / agentes: historico ---
+**/.bash_history
+**/.zsh_history
+**/.python_history
+**/.node_repl_history
+**/.mysql_history
+**/.psql_history
+
+# --- backups, temporarios, midia pessoal e compactados soltos ---
+**/tmp
+**/temp
+**/.tmp
+**/.temp
+**/*.tmp
+**/*.temp
+**/*.orig
+**/*.orig.*
+**/*.rej
+**/*.old
+**/*.save
+**/*.zip
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.gz
+**/*.bz2
+**/*.xz
+**/*.7z
+**/*.rar
+**/*.iso
+# capturas de tela e gravacoes (podem expor dados pessoais)
+**/Screenshot*.png
+**/Screen Shot*.png
+**/Screen Recording*
+**/Captura de tela*
+**/Captura de Tela*
+**/Gravacao*
+**/Gravando*
+**/*.mov
+**/*.mkv
+**/*.webm
+**/*.mp4
+# --- FraudGuard: o app precisa das migrations Flyway dentro da imagem (sobrescreve **/*.sql acima) ---
+!src/main/resources/db/migration/*.sql

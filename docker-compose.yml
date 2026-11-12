@@ -1,0 +1,79 @@
+services:
+  app:
+    build: .
+    ports: ["127.0.0.1:8080:8080"]
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/fraudguard
+      DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      REDIS_HOST: redis
+      SPRING_CLOUD_AWS_ENDPOINT: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      FRAUD_SERVICE_PASSWORD: ${FRAUD_SERVICE_PASSWORD:?defina FRAUD_SERVICE_PASSWORD no .env}
+      FRAUD_ANALYST_PASSWORD: ${FRAUD_ANALYST_PASSWORD:?defina FRAUD_ANALYST_PASSWORD no .env}
+      FRAUD_ADMIN_PASSWORD: ${FRAUD_ADMIN_PASSWORD:?defina FRAUD_ADMIN_PASSWORD no .env}
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      localstack: { condition: service_healthy }
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fraudguard
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud -d fraudguard"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3
+    environment:
+      SERVICES: sns,sqs
+    ports: ["127.0.0.1:4566:4566"]
+    volumes:
+      - ./infra/localstack/init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs list-queues"]
+      interval: 5s
+      retries: 20
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports: ["127.0.0.1:9090:9090"]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?defina GRAFANA_ADMIN_PASSWORD no .env}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [prometheus]
+
+  # docker compose --profile loadtest run --rm k6
+  k6:
+    image: grafana/k6:0.54.0
+    profiles: ["loadtest"]
+    environment:
+      BASE_URL: http://app:8080
+      SERVICE_PASSWORD: ${FRAUD_SERVICE_PASSWORD:?defina FRAUD_SERVICE_PASSWORD no .env}
+    volumes:
+      - ./loadtest:/scripts:ro
+    command: run /scripts/evaluate.js
+    depends_on: [app]

@@ -1,0 +1,8 @@
+title = "FraudGuard gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders do .env.example (sem valores reais)"
+paths = ['''(^|/)\.env\.example$''']

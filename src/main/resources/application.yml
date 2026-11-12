@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: fraudguard
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fraudguard}
+    username: ${DB_USER:fraud}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Timeouts curtos: o Redis nunca pode estourar o orçamento de 100 ms do endpoint síncrono.
+      timeout: 100ms
+      connect-timeout: 100ms
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+
+server:
+  port: 8080
+  max-http-request-header-size: 16KB
+
+fraudguard:
+  thresholds:
+    review: 40
+    block: 80
+  failsafe:
+    high-amount: 5000
+  circuit-breaker:
+    wait-open-seconds: 10
+  messaging:
+    enabled: true
+    queue: ${FRAUD_QUEUE:fraud-queue}
+  security:
+    service-password: ${FRAUD_SERVICE_PASSWORD}
+    analyst-password: ${FRAUD_ANALYST_PASSWORD}
+    admin-password: ${FRAUD_ADMIN_PASSWORD}
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms
+    tags:
+      application: fraudguard

@@ -1,0 +1,72 @@
+{
+  "uid": "fraudguard",
+  "title": "FraudGuard",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Latência p50 / p95 / p99 (sync) — meta p95 < 100 ms",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.1 } ] }, "custom": { "thresholdsStyle": { "mode": "line" } } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "legendFormat": "p50", "expr": "histogram_quantile(0.50, sum by (le) (rate(fraud_evaluation_latency_seconds_bucket{channel=\"sync\"}[1m])))" },
+        { "refId": "B", "legendFormat": "p95", "expr": "histogram_quantile(0.95, sum by (le) (rate(fraud_evaluation_latency_seconds_bucket{channel=\"sync\"}[1m])))" },
+        { "refId": "C", "legendFormat": "p99", "expr": "histogram_quantile(0.99, sum by (le) (rate(fraud_evaluation_latency_seconds_bucket{channel=\"sync\"}[1m])))" }
+      ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "% das avaliações dentro de 100 ms (SLO)",
+      "gridPos": { "h": 9, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(fraud_evaluation_latency_seconds_bucket{channel=\"sync\",le=\"0.1\"}[5m])) / sum(rate(fraud_evaluation_latency_seconds_count{channel=\"sync\"}[5m]))" }
+      ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Taxa de bloqueio",
+      "gridPos": { "h": 9, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(fraud_decisions_total{outcome=\"BLOQUEAR\"}[5m])) / sum(rate(fraud_decisions_total[5m]))" }
+      ]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Decisões por segundo",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{outcome}}", "expr": "sum by (outcome) (rate(fraud_decisions_total[1m]))" }
+      ]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Regras disparadas por segundo",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{rule}}", "expr": "sum by (rule) (rate(fraud_rule_fired_total[1m]))" }
+      ]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Fail-safe (Redis indisponível) por segundo",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "legendFormat": "ativações do fail-safe", "expr": "sum(rate(fraud_failsafe_activations_total[1m]))" },
+        { "refId": "B", "legendFormat": "{{reason}}", "expr": "sum by (reason) (rate(fraud_cache_unavailable_total[1m]))" }
+      ]
+    },
+    {
+      "id": 7, "type": "stat", "title": "Circuit breaker do Redis (0=fechado, 1=aberto)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "max(resilience4j_circuitbreaker_state{name=\"redis-velocity\",state=\"open\"})" }
+      ]
+    }
+  ]
+}

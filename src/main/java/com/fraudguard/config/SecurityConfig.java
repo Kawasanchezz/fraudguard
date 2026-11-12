@@ -1,0 +1,70 @@
+package com.fraudguard.config;
+
+import java.time.Clock;
+import java.util.Map;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
+
+/**
+ * Usuários em memória com HTTP Basic. O usuário SERVICE é chamado a cada transação e usa
+ * comparação direta (um hash BCrypt custaria ~200 ms por requisição e estoura o p95);
+ * ANALISTA e ADMIN, de baixo volume, usam BCrypt.
+ */
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http.csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(a -> a
+                        .requestMatchers("/actuator/health/**", "/actuator/prometheus").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/fraud/**").hasRole("SERVICE")
+                        .requestMatchers("/cases/**").hasRole("ANALISTA")
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .anyRequest().denyAll())
+                .httpBasic(Customizer.withDefaults());
+        return http.build();
+    }
+
+    @Bean
+    @SuppressWarnings("deprecation")
+    PasswordEncoder passwordEncoder() {
+        return new DelegatingPasswordEncoder("bcrypt", Map.of(
+                "bcrypt", new BCryptPasswordEncoder(),
+                "noop", NoOpPasswordEncoder.getInstance()));
+    }
+
+    /**
+     * Devolve um lambda, não o InMemoryUserDetailsManager: este implementa UserDetailsPasswordService,
+     * e o Spring o usaria para regravar a senha {noop} em BCrypt no primeiro login, trazendo de volta
+     * o custo de hash a cada requisição.
+     */
+    @Bean
+    UserDetailsService users(FraudProperties props, PasswordEncoder encoder) {
+        var sec = props.security();
+        var manager = new InMemoryUserDetailsManager(
+                User.withUsername("service").password("{noop}" + sec.servicePassword()).roles("SERVICE").build(),
+                User.withUsername("analista").password(encoder.encode(sec.analystPassword())).roles("ANALISTA").build(),
+                User.withUsername("admin").password(encoder.encode(sec.adminPassword())).roles("ADMIN").build());
+        return manager::loadUserByUsername;
+    }
+
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
+}
