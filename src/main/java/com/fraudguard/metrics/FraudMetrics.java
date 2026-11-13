@@ -44,4 +44,14 @@ public class FraudMetrics {
     public void failSafeActivated() {
         registry.counter("fraud.failsafe.activations").increment();
     }
+
+    /** Desfecho real comparado à decisão: base para falso positivo/negativo por versão de regras. */
+    public void feedback(com.fraudguard.feedback.Classification c, int rulesetVersion) {
+        registry.counter("fraud.feedback", "result", c.name(), "ruleset_version", String.valueOf(rulesetVersion)).increment();
+    }
+
+    /** Regras que estavam disparadas numa decisão que se provou errada. */
+    public void feedbackRule(com.fraudguard.feedback.Classification c, String ruleCode) {
+        registry.counter("fraud.feedback.rule", "result", c.name(), "rule", ruleCode).increment();
+    }
 }
