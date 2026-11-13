@@ -7,6 +7,8 @@ import com.fraudguard.evaluation.EvaluationResult;
 import com.fraudguard.evaluation.FailSafePolicy;
 import com.fraudguard.evaluation.Outcome;
 import com.fraudguard.evaluation.RuleHit;
+import com.fraudguard.feedback.Classification;
+import com.fraudguard.feedback.OutcomeService;
 import com.fraudguard.profile.CustomerProfile;
 import com.fraudguard.profile.CustomerProfileRepository;
 import com.fraudguard.rules.RuleAdminController;
@@ -393,6 +395,56 @@ class EvaluationIT {
     void actuatorIsNotServedOnThePublicPort() {
         assertThat(http.getForEntity("/actuator/prometheus", String.class).getStatusCode().is2xxSuccessful()).isFalse();
         assertThat(http.getForEntity("/actuator/env", String.class).getStatusCode().is2xxSuccessful()).isFalse();
+    }
+
+    /** Fechamento do ciclo: desfecho real (chargeback / legítima) comparado à decisão original. */
+    @Test
+    @Order(20)
+    void recordsRealOutcomeAndReportsFalsePositivesAndNegatives() {
+        String c = id();
+        profiles.save(new CustomerProfile(c, new BigDecimal("100"), null));
+        var bloqueada = evaluate(tx(id(), c, "100000", "novo-dev", "BR-RJ", "novo-rcp"));
+        assertThat(bloqueada.outcome()).isNotEqualTo(Outcome.APROVAR);
+        var aprovada = evaluate(tx(id(), c, "10", "d1", "BR-SP", "r1"));
+        assertThat(aprovada.outcome()).isEqualTo(Outcome.APROVAR);
+
+        // legítima que foi bloqueada = falso positivo
+        var fp = http.withBasicAuth("service", SERVICE_PW).postForEntity("/fraud/outcomes",
+                Map.of("transactionId", bloqueada.transactionId(), "type", "LEGITIMA_CONFIRMADA"),
+                OutcomeService.Recorded.class);
+        assertThat(fp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(fp.getBody().classification()).isEqualTo(Classification.FALSO_POSITIVO);
+
+        // chargeback numa aprovada = falso negativo
+        var fn = http.withBasicAuth("service", SERVICE_PW).postForEntity("/fraud/outcomes",
+                Map.of("transactionId", aprovada.transactionId(), "type", "CHARGEBACK"),
+                OutcomeService.Recorded.class);
+        assertThat(fn.getBody().classification()).isEqualTo(Classification.FALSO_NEGATIVO);
+
+        // repetir é idempotente
+        var repetido = http.withBasicAuth("service", SERVICE_PW).postForEntity("/fraud/outcomes",
+                Map.of("transactionId", aprovada.transactionId(), "type", "CHARGEBACK"),
+                OutcomeService.Recorded.class);
+        assertThat(repetido.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        // transação sem decisão: 404; tipo inválido: 400; sem credencial: 401
+        assertThat(http.withBasicAuth("service", SERVICE_PW).postForEntity("/fraud/outcomes",
+                Map.of("transactionId", "nao-existe-" + id(), "type", "CHARGEBACK"), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(http.withBasicAuth("service", SERVICE_PW).postForEntity("/fraud/outcomes",
+                Map.of("transactionId", aprovada.transactionId(), "type", "QUALQUER"), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(http.postForEntity("/fraud/outcomes",
+                Map.of("transactionId", aprovada.transactionId(), "type", "CHARGEBACK"), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        var relatorio = http.withBasicAuth("service", SERVICE_PW)
+                .getForEntity("/fraud/outcomes/report", OutcomeService.VersionReport[].class).getBody();
+        assertThat(relatorio).isNotEmpty();
+        assertThat(java.util.Arrays.stream(relatorio).mapToLong(OutcomeService.VersionReport::falsosPositivos).sum())
+                .isGreaterThanOrEqualTo(1);
+        assertThat(java.util.Arrays.stream(relatorio).mapToLong(OutcomeService.VersionReport::falsosNegativos).sum())
+                .isGreaterThanOrEqualTo(1);
     }
 
     /** Fail-safe de verdade: congela o Redis (as chamadas estouram o timeout de 100 ms). */

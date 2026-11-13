@@ -23,6 +23,8 @@ Usuários (HTTP Basic, em memória, senhas obrigatórias via variáveis de ambie
 | Endpoint | Perfil | Função |
 | --- | --- | --- |
 | `POST /fraud/evaluate` | SERVICE | Decisão síncrona. Idempotente por `transactionId` |
+| `POST /fraud/outcomes` | SERVICE | Registra o desfecho real (`CHARGEBACK`, `FRAUDE_CONFIRMADA`, `LEGITIMA_CONFIRMADA`) ligado à decisão. Idempotente; 404 se não houve decisão |
+| `GET /fraud/outcomes/report` | SERVICE | Falsos positivos/negativos, precisão e recall **por versão de regras** |
 | `GET /cases?status=ABERTO` | ANALISTA | Fila de revisão manual |
 | `POST /cases/{id}/approve` · `/block` | ANALISTA | Resolve o caso (uma vez; 409 se já resolvido) |
 | `GET /admin/rules` · `PUT /admin/rules/{code}` | ADMIN | Ativa/desativa, muda peso e parâmetros **sem deploy** |
@@ -88,3 +90,14 @@ A decisão registra o motivo `FAILSAFE_CACHE_UNAVAILABLE`. Limiar em `fraudguard
 ## Demo online (Vercel)
 
 O simulador roda sem senha. Na Vercel, `api/index.py` (Python, só biblioteca padrão) reimplementa o motor de regras para a demonstração. Não é o serviço Java: não há PostgreSQL, Redis nem autenticação, e o estado fica na memória da função (some quando a Vercel a recicla). Se a função não responder, o simulador usa o mesmo motor em JavaScript no navegador. Testes: `python -m unittest discover -s tests_api`.
+
+## Ciclo de feedback (desfecho real)
+
+A decisão guarda o score, as regras e a `ruleset_version`. O desfecho vindo do cliente ou do adquirente (chargeback, contestação improcedente) é gravado na tabela `decision_outcome`, ligado pela `transaction_id`, e comparado com a decisão original:
+
+- segurou (REVISAR/BLOQUEAR) e era fraude: verdadeiro positivo; segurou e era legítima: **falso positivo**;
+- aprovou e houve chargeback: **falso negativo**.
+
+Os contadores `fraud.feedback` (por versão) e `fraud.feedback.rule` (por regra) vão para o Prometheus, e `GET /fraud/outcomes/report` mostra precisão e recall por versão de regras, para saber se um ajuste de peso ajudou de fato. Não depende de time grande de revisão: o chargeback é o sinal mais barato.
+
+Limite conhecido: o rótulo é enviesado. Transação bloqueada raramente gera chargeback, então falsos negativos aparecem mais que falsos positivos. A ligação com o resultado dos casos revisados por analistas ainda não existe.
