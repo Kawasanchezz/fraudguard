@@ -22,6 +22,24 @@ function idAleatorio(prefixo) {
   return prefixo + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const NOMES = ["Maria Silva", "João Souza", "Ana Costa", "Pedro Lima", "Carla Dias", "Lucas Rocha",
+  "Beatriz Alves", "Rafael Nunes", "Juliana Melo", "Carlos Ramos", "Fernanda Cruz", "Bruno Teixeira"];
+const DISPOSITIVOS = ["iPhone 13", "Galaxy S23", "Moto G54", "Redmi Note 12", "Pixel 8"];
+const DESTINATARIOS = ["Padaria Central", "Mercado Bom Preço", "Farmácia Saúde", "Posto Ipiranga", "Loja do Zé"];
+const LOCAIS = ["São Paulo - SP", "Rio de Janeiro - RJ", "Belo Horizonte - MG", "Curitiba - PR", "Recife - PE"];
+
+/** Sorteio sem viés: máscara de bits + rejeição, sem módulo nem escala. */
+function sorteio(lista) {
+  const mascara = (1 << (32 - Math.clz32(lista.length - 1))) - 1;
+  const buffer = new Uint8Array(1);
+  let indice;
+  do {
+    crypto.getRandomValues(buffer);
+    indice = buffer[0] & mascara;
+  } while (indice >= lista.length);
+  return lista[indice];
+}
+
 function basic(usuario, segredo) {
   const bytes = new TextEncoder().encode(usuario + ":" + segredo);
   return "Basic " + btoa(String.fromCharCode(...bytes));
@@ -50,7 +68,11 @@ function corDoCliente(texto) {
 }
 
 function iniciais(cliente) {
-  return cliente.split("-").pop().slice(0, 2);
+  const palavras = cliente.trim().split(/[s-]+/).filter(Boolean);
+  if (palavras.length >= 2) {
+    return (palavras[0][0] + palavras[1][0]).toUpperCase();
+  }
+  return (palavras[0] || "?").slice(0, 2).toUpperCase();
 }
 
 function criarAvatar(cliente) {
@@ -209,6 +231,9 @@ function renderDetalhe() {
   $("d-avatar").replaceChildren(criarAvatar(h.transacao.customerId));
   $("d-canal").textContent = NOMES_CANAL[h.transacao.channel] || String(h.transacao.channel);
   $("d-valor").textContent = moeda(h.transacao.amount);
+  $("d-dispositivo").textContent = h.transacao.deviceId || "não informado";
+  $("d-local").textContent = h.transacao.location || "não informada";
+  $("d-destinatario").textContent = h.transacao.recipientId || "não informado";
   $("saida").textContent = resultado.outcome;
   $("saida").className = "pilula-saida " + faixa;
 
@@ -281,16 +306,16 @@ async function executar(tarefa) {
 const CENARIOS = {
   normal: () => avaliar({
     transactionId: idAleatorio("sim-"),
-    customerId: idAleatorio("demo-"),
+    customerId: sorteio(NOMES),
     amount: 120,
     channel: "PIX",
-    location: "BR-SP",
-    deviceId: "dispositivo-1",
-    recipientId: "destinatario-1",
+    location: LOCAIS[0],
+    deviceId: DISPOSITIVOS[0],
+    recipientId: DESTINATARIOS[0],
   }),
 
   rajada: async () => {
-    const cliente = idAleatorio("demo-");
+    const cliente = sorteio(NOMES);
     let ultimo;
     for (let i = 0; i < 7; i++) {
       ultimo = await avaliar({
@@ -298,24 +323,24 @@ const CENARIOS = {
         customerId: cliente,
         amount: 10,
         channel: "PIX",
-        location: "BR-SP",
-        deviceId: "dispositivo-1",
-        recipientId: "destinatario-1",
+        location: LOCAIS[0],
+        deviceId: DISPOSITIVOS[0],
+        recipientId: DESTINATARIOS[0],
       });
     }
     return ultimo;
   },
 
   suspeita: async () => {
-    const cliente = idAleatorio("demo-");
+    const cliente = sorteio(NOMES);
     await avaliar({
       transactionId: idAleatorio("sim-"),
       customerId: cliente,
       amount: 100,
       channel: "PIX",
-      location: "BR-SP",
-      deviceId: "dispositivo-1",
-      recipientId: "destinatario-1",
+      location: LOCAIS[0],
+      deviceId: DISPOSITIVOS[0],
+      recipientId: DESTINATARIOS[0],
     });
     await dormir(1500);
     return avaliar({
@@ -323,9 +348,9 @@ const CENARIOS = {
       customerId: cliente,
       amount: 100000,
       channel: "PIX",
-      location: "BR-RJ",
-      deviceId: "dispositivo-2",
-      recipientId: "destinatario-2",
+      location: LOCAIS[1],
+      deviceId: DISPOSITIVOS[1],
+      recipientId: DESTINATARIOS[1],
     });
   },
 };
@@ -403,7 +428,57 @@ $("limpar").addEventListener("click", () => {
   mensagem("Sessão limpa.", "");
 });
 
-$("cliente").value = idAleatorio("demo-");
+const perfis = new Map();
+
+function mensagemPerfil(texto) {
+  $("perfis-msg").textContent = texto;
+}
+
+/** Guarda o cliente com seus dados só enquanto a aba estiver aberta (nada é gravado no navegador). */
+$("cadastrar").addEventListener("click", () => {
+  const nome = $("cliente").value.trim();
+  if (!nome) {
+    mensagemPerfil("Digite o nome do cliente primeiro.");
+    $("cliente").focus();
+    return;
+  }
+  const existia = perfis.has(nome);
+  perfis.set(nome, {
+    local: $("local").value.trim(),
+    dispositivo: $("dispositivo").value.trim(),
+    destinatario: $("destinatario").value.trim(),
+  });
+  const opcoes = [...perfis.keys()].map((n) => {
+    const o = document.createElement("option");
+    o.value = n;
+    return o;
+  });
+  $("perfis").replaceChildren(...opcoes);
+  mensagemPerfil(existia ? "Dados de " + nome + " atualizados." : nome + " cadastrado. Escolha pelo campo Cliente.");
+});
+
+$("cliente").addEventListener("change", () => {
+  const perfil = perfis.get($("cliente").value.trim());
+  if (perfil) {
+    $("local").value = perfil.local;
+    $("dispositivo").value = perfil.dispositivo;
+    $("destinatario").value = perfil.destinatario;
+    mensagemPerfil("Dados carregados do cadastro.");
+  }
+});
+
+$("sortear").addEventListener("click", () => {
+  $("cliente").value = sorteio(NOMES);
+  $("local").value = sorteio(LOCAIS);
+  $("dispositivo").value = sorteio(DISPOSITIVOS);
+  $("destinatario").value = sorteio(DESTINATARIOS);
+  mensagemPerfil("Dados sorteados. Edite o que quiser e clique em Avaliar.");
+});
+
+$("cliente").value = sorteio(NOMES);
+$("local").value = LOCAIS[0];
+$("dispositivo").value = DISPOSITIVOS[0];
+$("destinatario").value = DESTINATARIOS[0];
 
 if (MODO_DEMO) {
   $("banner-demo").hidden = false;

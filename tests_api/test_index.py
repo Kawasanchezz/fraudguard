@@ -64,6 +64,23 @@ class ApiDemoTest(unittest.TestCase):
         self.assertEqual((status, r["weight"], r["enabled"], r["version"]), (200, 10, False, 2))
         self.assertEqual(tratar("PUT", "/admin/rules/NAO_EXISTE", {}, {"weight": 1}, self.e)[0], 404)
 
+    def test_aceita_nomes_com_acento_e_espaco(self):
+        status, r = self.avaliar(customerId="Kawã Sanchez", deviceId="iPhone 13", location="São Paulo - SP",
+                                 recipientId="Mercado Bom Preço")
+        self.assertEqual(status, 200)
+        self.assertEqual(r["transactionId"], "t1")
+
+    def test_valida_canal_e_limites_como_no_java(self):
+        for ruim in (tx(channel="BOLETO"), tx(channel=None), tx(location="x" * 65), tx(deviceId="x" * 129)):
+            self.assertEqual(tratar("POST", "/fraud/evaluate", {}, ruim, self.e)[0], 400)
+        self.assertEqual(tratar("POST", "/fraud/evaluate", {}, tx(deviceId="x" * 128, channel="CARTAO"), self.e)[0], 200)
+
+    def test_limite_de_requisicoes_por_ip(self):
+        from index import limite_excedido, LIMITE_REQ
+        self.assertFalse(any(limite_excedido("9.9.9.9", 1000.0) for _ in range(LIMITE_REQ)))
+        self.assertTrue(limite_excedido("9.9.9.9", 1001.0))
+        self.assertFalse(limite_excedido("9.9.9.9", 1100.0))
+
     def test_rota_desconhecida_404(self):
         self.assertEqual(tratar("GET", "/qualquer", {}, None, self.e)[0], 404)
 
