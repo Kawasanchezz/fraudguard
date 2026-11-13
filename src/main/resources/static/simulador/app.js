@@ -420,6 +420,53 @@ $("limpar").addEventListener("click", () => {
   mensagem("Sessão limpa.", "");
 });
 
+const perfis = new Map();
+
+function mensagemPerfil(texto) {
+  $("perfis-msg").textContent = texto;
+}
+
+/** Guarda o cliente com seus dados só enquanto a aba estiver aberta (nada é gravado no navegador). */
+$("cadastrar").addEventListener("click", () => {
+  const nome = $("cliente").value.trim();
+  if (!nome) {
+    mensagemPerfil("Digite o nome do cliente primeiro.");
+    $("cliente").focus();
+    return;
+  }
+  const existia = perfis.has(nome);
+  perfis.set(nome, {
+    local: $("local").value.trim(),
+    dispositivo: $("dispositivo").value.trim(),
+    destinatario: $("destinatario").value.trim(),
+  });
+  const opcoes = [...perfis.keys()].map((n) => {
+    const o = document.createElement("option");
+    o.value = n;
+    return o;
+  });
+  $("perfis").replaceChildren(...opcoes);
+  mensagemPerfil(existia ? "Dados de " + nome + " atualizados." : nome + " cadastrado. Escolha pelo campo Cliente.");
+});
+
+$("cliente").addEventListener("change", () => {
+  const perfil = perfis.get($("cliente").value.trim());
+  if (perfil) {
+    $("local").value = perfil.local;
+    $("dispositivo").value = perfil.dispositivo;
+    $("destinatario").value = perfil.destinatario;
+    mensagemPerfil("Dados carregados do cadastro.");
+  }
+});
+
+$("sortear").addEventListener("click", () => {
+  $("cliente").value = sorteio(NOMES);
+  $("local").value = sorteio(LOCAIS);
+  $("dispositivo").value = sorteio(DISPOSITIVOS);
+  $("destinatario").value = sorteio(DESTINATARIOS);
+  mensagemPerfil("Dados sorteados. Edite o que quiser e clique em Avaliar.");
+});
+
 $("cliente").value = sorteio(NOMES);
 $("local").value = LOCAIS[0];
 $("dispositivo").value = DISPOSITIVOS[0];

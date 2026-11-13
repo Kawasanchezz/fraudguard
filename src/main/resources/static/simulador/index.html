@@ -104,11 +104,17 @@
 
     <form id="form" class="filtros" novalidate>
       <div class="filtros-titulo">Dados da transação <span class="contador">5</span></div>
-      <label class="campo"><span>Cliente</span><input id="cliente" maxlength="64" required></label>
+      <label class="campo"><span>Cliente</span><input id="cliente" maxlength="64" required list="perfis" autocomplete="off"></label>
+      <datalist id="perfis"></datalist>
       <label class="campo"><span>Valor (R$)</span><input id="valor" inputmode="decimal" required value="150.00"></label>
       <label class="campo"><span>Localização</span><input id="local" maxlength="64" value="São Paulo - SP"></label>
       <label class="campo"><span>Dispositivo</span><input id="dispositivo" maxlength="128" value="iPhone 13"></label>
       <label class="campo"><span>Destinatário</span><input id="destinatario" maxlength="128" value="Padaria Central"></label>
+      <div class="filtros-acoes">
+        <button type="button" id="cadastrar" class="contorno">Cadastrar / atualizar cliente</button>
+        <button type="button" id="sortear" class="contorno">Sortear dados</button>
+        <span id="perfis-msg" class="msg-perfis" role="status"></span>
+      </div>
     </form>
 
     <main class="baixo">
