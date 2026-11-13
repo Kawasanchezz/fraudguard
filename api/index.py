@@ -22,10 +22,26 @@ except ImportError:  # pragma: no cover
 MAX_BODY = 8 * 1024
 MAX_CLIENTES = 500
 MAX_CASOS = 200
-MAX_TEXTO = 64
+MAX_TEXTO = 64          # transactionId, customerId, location (igual ao Java)
+MAX_TEXTO_LONGO = 128   # deviceId, recipientId (igual ao Java)
+CANAIS = ("PIX", "CARTAO", "TRANSFERENCIA")
+LIMITE_REQ = 120        # requisicoes por IP por minuto (melhor esforco, por instancia)
 LIMIARES = {"revisar": 40, "bloquear": 80}
 
 _trava = threading.Lock()
+_acessos = {}
+
+
+def limite_excedido(ip, agora=None):
+    """Janela deslizante de 60 s por IP. Em memoria: protege contra abuso simples, nao contra DDoS."""
+    agora = time.time() if agora is None else agora
+    with _trava:
+        recentes = [t for t in _acessos.get(ip, []) if agora - t < 60]
+        recentes.append(agora)
+        _acessos[ip] = recentes
+        if len(_acessos) > 2000:
+            _acessos.pop(next(iter(_acessos)))
+        return len(recentes) > LIMITE_REQ
 
 
 def _regras_padrao():
@@ -133,8 +149,10 @@ def _tx_valida(tx):
     valor = tx.get("amount")
     if isinstance(valor, bool) or not isinstance(valor, (int, float)) or not (0 < valor < 1e12):
         return False
-    return all(tx.get(k) is None or (isinstance(tx[k], str) and len(tx[k]) <= MAX_TEXTO)
-               for k in ("deviceId", "location", "recipientId", "channel"))
+    if tx.get("channel") not in CANAIS:
+        return False
+    limites = {"location": MAX_TEXTO, "deviceId": MAX_TEXTO_LONGO, "recipientId": MAX_TEXTO_LONGO}
+    return all(tx.get(k) is None or (isinstance(tx[k], str) and len(tx[k]) <= n) for k, n in limites.items())
 
 
 def tratar(metodo, caminho, consulta, corpo, estado=ESTADO):
@@ -189,6 +207,9 @@ def tratar(metodo, caminho, consulta, corpo, estado=ESTADO):
 
 class handler(BaseHTTPRequestHandler):
     def _responder(self, metodo):
+        ip = (self.headers.get("x-forwarded-for") or self.client_address[0]).split(",")[0].strip()
+        if limite_excedido(ip):
+            return self._enviar(429, None)
         url = urlparse(self.path)
         consulta = parse_qs(url.query)
         alvo = urlparse((consulta.get("p") or ["/health"])[0])
@@ -212,6 +233,7 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(carga)))
         self.end_headers()
         self.wfile.write(carga)

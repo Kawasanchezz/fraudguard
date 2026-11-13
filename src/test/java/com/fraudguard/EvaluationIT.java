@@ -397,6 +397,17 @@ class EvaluationIT {
         assertThat(http.getForEntity("/actuator/env", String.class).getStatusCode().is2xxSuccessful()).isFalse();
     }
 
+    /** Nomes legíveis (acento e espaço) como cliente, dispositivo, local e destinatário. */
+    @Test
+    @Order(19)
+    void acceptsReadableNamesWithAccents() {
+        var body = Map.<String, Object>of("transactionId", id(), "customerId", "Kawã Sanchez",
+                "amount", new BigDecimal("150.00"), "channel", "PIX", "deviceId", "iPhone 13",
+                "location", "São Paulo - SP", "recipientId", "Mercado Bom Preço", "occurredAt", NOON_SP.toString());
+        var resp = evaluate(body);
+        assertThat(resp.transactionId()).isEqualTo(body.get("transactionId"));
+    }
+
     /** Fechamento do ciclo: desfecho real (chargeback / legítima) comparado à decisão original. */
     @Test
     @Order(20)
