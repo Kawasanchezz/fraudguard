@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'">
+  <title>FraudGuard · Simulador de transações</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="moldura">
+
+    <header class="topo">
+      <div class="app">
+        <svg class="estrela" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1l3.2 11.8L31 16l-11.8 3.2L16 31l-3.2-11.8L1 16l11.8-3.2z"/></svg>
+        <strong>fraudguard</strong>
+      </div>
+
+      <nav class="nav" aria-label="Seções">
+        <span class="circulo-nav" aria-hidden="true">
+          <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 11h18"/></svg>
+        </span>
+        <button type="button" class="aba ativa" data-vista="simulador" aria-current="page">Simulador</button>
+        <button type="button" class="aba" data-vista="casos">Casos</button>
+        <button type="button" class="aba" data-vista="regras">Regras</button>
+        <button type="button" class="aba" data-vista="metricas">Métricas</button>
+      </nav>
+
+      <div class="acesso">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <label class="so-leitor" for="senha">Senha do usuário service</label>
+        <input id="senha" type="password" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Senha do usuário service">
+      </div>
+    </header>
+
+    <p id="banner-demo" class="banner-demo" hidden><strong>Modo demonstração.</strong> O motor de regras roda aqui no seu navegador, sem servidor e sem senha: use qualquer valor. Nada é enviado para fora.</p>
+
+    <div class="titulo-linha">
+      <div class="titulo-esq">
+        <button type="button" id="limpar" class="redondo" aria-label="Limpar a sessão" title="Limpar a sessão">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        </button>
+        <h1 id="titulo">Transações</h1>
+      </div>
+      <div class="titulo-dir">
+        <p id="acesso-msg" class="msg" role="status">Digite a senha do usuário <code>service</code>. Ela fica só na memória desta aba.</p>
+        <button type="button" id="novo" class="redondo" aria-label="Ir para os dados da transação" title="Dados da transação">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+        </button>
+        <button type="button" id="nova" class="contorno">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M12 11v6M9 14h6"/></svg>
+          Nova transação
+        </button>
+      </div>
+    </div>
+
+    <div id="vista-simulador">
+    <section class="kpis" aria-label="Resumo da sessão">
+      <article class="vidro grande-card">
+        <div class="stats">
+          <div class="stat">
+            <h2>Aprovadas</h2>
+            <div class="numero"><span id="k-ap">0</span></div>
+            <div class="legenda"><span>Aprovar</span><span id="p-ap">0%</span></div>
+            <div class="trilha" aria-hidden="true"><span id="t-ap"></span></div>
+            <div class="avatares" id="av-ap"></div>
+          </div>
+          <div class="stat">
+            <h2>Em revisão</h2>
+            <div class="numero"><span id="k-re">0</span></div>
+            <div class="legenda"><span>Revisar</span><span id="p-re">0%</span></div>
+            <div class="trilha" aria-hidden="true"><span id="t-re"></span></div>
+            <div class="avatares" id="av-re"></div>
+          </div>
+          <div class="stat">
+            <h2>Bloqueadas</h2>
+            <div class="numero"><span id="k-bl">0</span></div>
+            <div class="legenda"><span>Bloquear</span><span id="p-bl">0%</span></div>
+            <div class="trilha" aria-hidden="true"><span id="t-bl"></span></div>
+            <div class="avatares" id="av-bl"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="vidro pagamento">
+        <div class="pag-topo">
+          <div>
+            <h2>Score médio da sessão</h2>
+            <div class="numero"><span id="k-media">0</span><small>/100</small></div>
+          </div>
+          <span id="k-ultima" class="pilula-saida neutra">sem decisões</span>
+        </div>
+        <div class="pag-base">
+          <div class="canais" role="group" aria-label="Canal da transação">
+            <button type="button" class="canal" data-canal="PIX" aria-pressed="false"><span class="cod">*PIX</span><span class="nome">Pix</span></button>
+            <button type="button" class="canal ativo" data-canal="CARTAO" aria-pressed="true"><span class="cod">#CRT</span><span class="nome">Cartão</span></button>
+            <button type="button" class="canal" data-canal="TRANSFERENCIA" aria-pressed="false" aria-label="Transferência"><span class="cod">&gt;TED</span><span class="nome" title="Transferência">Transf.</span></button>
+          </div>
+          <button type="submit" form="form" id="enviar" class="escuro">Avaliar</button>
+        </div>
+      </article>
+    </section>
+
+    <form id="form" class="filtros" novalidate>
+      <div class="filtros-titulo">Dados da transação <span class="contador">5</span></div>
+      <label class="campo"><span>Cliente</span><input id="cliente" maxlength="64" required></label>
+      <label class="campo"><span>Valor (R$)</span><input id="valor" inputmode="decimal" required value="150.00"></label>
+      <label class="campo"><span>Localização</span><input id="local" maxlength="64" value="BR-SP"></label>
+      <label class="campo"><span>Dispositivo</span><input id="dispositivo" maxlength="128" value="dispositivo-1"></label>
+      <label class="campo"><span>Destinatário</span><input id="destinatario" maxlength="128" value="destinatario-1"></label>
+    </form>
+
+    <main class="baixo">
+      <div class="entalhe" role="group" aria-label="Filtrar a lista por decisão">
+        <button type="button" class="aba-filtro ativo" data-filtro="TODAS" aria-pressed="true">Todas <b id="c-todas">0</b></button>
+        <button type="button" class="aba-filtro" data-filtro="APROVAR" aria-pressed="false">Aprovar <b id="c-ap">0</b></button>
+        <button type="button" class="aba-filtro" data-filtro="REVISAR" aria-pressed="false">Revisar <b id="c-re">0</b></button>
+        <button type="button" class="aba-filtro" data-filtro="BLOQUEAR" aria-pressed="false">Bloquear <b id="c-bl">0</b></button>
+      </div>
+
+      <div class="baixo-topo">
+        <h2 id="t-hist">Transações avaliadas</h2>
+        <div class="cenarios" role="group" aria-label="Cenários prontos">
+          <button type="button" class="pilula-botao" data-cenario="normal">Normal</button>
+          <button type="button" class="pilula-botao" data-cenario="rajada">Rajada de 7</button>
+          <button type="button" class="pilula-botao" data-cenario="suspeita">Valor alto + novos</button>
+        </div>
+      </div>
+
+      <div class="duas">
+        <section aria-labelledby="t-hist" class="lista-area">
+          <ul id="historico" class="lista"></ul>
+          <p id="hist-vazio" class="vazio-lista">Nada avaliado ainda. Envie uma transação ou use um cenário pronto.</p>
+        </section>
+
+        <section class="detalhe" aria-labelledby="t-det" aria-live="polite">
+          <h2 id="t-det" class="so-leitor">Detalhes da decisão</h2>
+          <div id="vazio" class="vazio">Selecione uma transação da lista.</div>
+
+          <div id="res" hidden>
+            <div class="cabeca">
+              <div>
+                <span class="rotulo">Detalhes da decisão</span>
+                <div class="grande-id"><span class="cerquilha">#</span><span id="d-id"></span></div>
+                <span id="saida" class="pilula-saida"></span>
+              </div>
+              <div>
+                <span class="rotulo">Canal</span>
+                <div id="d-canal" class="canal-nome"></div>
+              </div>
+              <div>
+                <span class="rotulo">Cliente</span>
+                <div class="cliente-linha"><span id="d-avatar"></span><div id="d-cliente" class="id"></div></div>
+              </div>
+            </div>
+
+            <div class="medidor" role="img" aria-label="Score de risco">
+              <div id="barra" class="barra"></div>
+              <div class="marca m40"></div>
+              <div class="marca m80"></div>
+            </div>
+            <div class="escala" aria-hidden="true"><span>0</span><span class="e40">40</span><span class="e80">80</span><span class="e100">100</span></div>
+
+            <ul id="motivos" class="motivos"></ul>
+
+            <details>
+              <summary>Resposta completa (JSON)</summary>
+              <pre id="json"></pre>
+            </details>
+
+            <div class="resumo">
+              <div><span class="rotulo">Score</span><strong id="score">0</strong></div>
+              <div><span class="rotulo">Valor</span><strong id="d-valor"></strong></div>
+              <div><span class="rotulo">Regras</span><strong id="versao"></strong></div>
+              <button type="button" id="reavaliar" class="lima">Avaliar de novo</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    </div>
+
+    <section id="vista-casos" class="vista" hidden aria-labelledby="t-casos">
+      <div class="painel-claro">
+        <div class="vista-topo">
+          <h2 id="t-casos">Fila de revisão manual</h2>
+          <div class="grupo">
+            <label class="campo-inline"><span>Senha do usuário <code>analista</code></span>
+              <input id="senha-analista" type="password" autocomplete="off" spellcheck="false" maxlength="128"></label>
+            <button type="button" class="lima" id="casos-carregar">Carregar</button>
+          </div>
+        </div>
+        <div class="grupo" role="group" aria-label="Filtrar casos por situação">
+          <button type="button" class="pilula-clara ativo" data-casos-status="ABERTO" aria-pressed="true">Abertos</button>
+          <button type="button" class="pilula-clara" data-casos-status="APROVADO" aria-pressed="false">Aprovados</button>
+          <button type="button" class="pilula-clara" data-casos-status="BLOQUEADO" aria-pressed="false">Bloqueados</button>
+        </div>
+        <p id="casos-msg" class="msg-vista" role="status">Digite a senha do analista e clique em Carregar.</p>
+        <ul id="casos-lista" class="cartoes"></ul>
+      </div>
+    </section>
+
+    <section id="vista-regras" class="vista" hidden aria-labelledby="t-regras">
+      <div class="painel-claro">
+        <div class="vista-topo">
+          <h2 id="t-regras">Regras de fraude</h2>
+          <div class="grupo">
+            <label class="campo-inline"><span>Senha do usuário <code>admin</code></span>
+              <input id="senha-admin" type="password" autocomplete="off" spellcheck="false" maxlength="128"></label>
+            <button type="button" class="lima" id="regras-carregar">Carregar</button>
+          </div>
+        </div>
+        <p class="ajuda-vista">Cada alteração cria uma nova versão da regra (nada é sobrescrito) e vale na hora, sem deploy.</p>
+        <p id="regras-msg" class="msg-vista" role="status">Digite a senha do admin e clique em Carregar.</p>
+        <ul id="regras-lista" class="cartoes"></ul>
+      </div>
+    </section>
+
+    <section id="vista-metricas" class="vista" hidden aria-labelledby="t-metricas">
+      <div class="painel-claro">
+        <h2 id="t-metricas">Latência medida nesta sessão</h2>
+        <p class="ajuda-vista">Medido aqui no navegador, ida e volta incluída. A meta do projeto é p95 abaixo de 100 ms.</p>
+        <p id="met-demo" class="ajuda-vista" hidden>Na demonstração os tempos são medidos no navegador, sem servidor, e <strong>não</strong> representam a meta de p95 do projeto.</p>
+        <p id="met-vazio" class="msg-vista">Avalie algumas transações no Simulador para ver os números.</p>
+        <div id="met-corpo" hidden>
+          <div class="met-kpis">
+            <div><span class="rotulo-claro">Avaliações</span><strong id="m-n">0</strong></div>
+            <div><span class="rotulo-claro">p50</span><strong id="m-p50">0</strong></div>
+            <div><span class="rotulo-claro">p95</span><strong id="m-p95">0</strong></div>
+            <div><span class="rotulo-claro">Máximo</span><strong id="m-max">0</strong></div>
+            <div><span class="rotulo-claro">Abaixo de 100 ms</span><strong id="m-ok">0%</strong></div>
+          </div>
+          <div class="grafico" id="met-grafico" role="img" aria-label="Latência das últimas avaliações"><span class="linha-meta" aria-hidden="true"></span></div>
+          <p class="legenda-grafico">Barras: últimas 40 avaliações (escala até 300 ms). A linha marca 100 ms.</p>
+          <h3 class="sub-claro">Regras mais disparadas</h3>
+          <ul id="met-regras" class="lista-simples"></ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="rodape">
+      Projeto acadêmico. Abaixo de 40 aprova, de 40 a 79 envia para revisão e a partir de 80 bloqueia.
+    </footer>
+  </div>
+  <script src="demo.js"></script>
+  <script src="app.js"></script>
+  <script src="vistas.js"></script>
+</body>
+</html>

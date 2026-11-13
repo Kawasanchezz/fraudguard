@@ -16,6 +16,7 @@ Resposta esperada: confirmação de recebimento em até 7 dias e plano de corre�
 
 - Sem credenciais padrão: senhas dos usuários da aplicação, do banco e do Grafana vêm de variáveis de ambiente obrigatórias e a aplicação não inicia sem elas (`.env.example` só tem placeholders).
 - Endpoints de métricas e health em porta de gestão separada, não publicada pelo `docker-compose`; demais portas publicadas apenas em `127.0.0.1`.
+- CSRF habilitado para `/cases` e `/admin` (token em cookie HttpOnly e SameSite=Strict comparado com o cabeçalho `X-XSRF-TOKEN`); `/fraud` fica fora por ser chamada de serviço para serviço, sem navegador, e exige corpo JSON.
 - Autorização por perfil: `SERVICE` avalia, `ANALISTA` resolve casos, `ADMIN` altera regras. Todo o resto é negado.
 - Validação de tamanho e formato nas entradas; parâmetros de regras validados antes de gravar.
 - Dados pessoais minimizados: a decisão guarda apenas id da transação, score, motivos e versão; identificadores vão hasheados ao Redis e mascarados nos logs.

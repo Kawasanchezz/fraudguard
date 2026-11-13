@@ -16,6 +16,11 @@ public class ApiExceptionHandler {
         return ResponseEntity.badRequest().build();
     }
 
+    @ExceptionHandler(com.fraudguard.feedback.UnknownDecisionException.class)
+    ResponseEntity<Void> unknownDecision(com.fraudguard.feedback.UnknownDecisionException e) {
+        return ResponseEntity.notFound().build();
+    }
+
     /** Corpo em chunks que passou do limite chega aqui como erro de leitura: responde 413 em vez de 400. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<Void> unreadableBody(HttpMessageNotReadableException e) {
