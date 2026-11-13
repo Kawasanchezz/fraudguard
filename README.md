@@ -84,3 +84,7 @@ A decisão registra o motivo `FAILSAFE_CACHE_UNAVAILABLE`. Limiar em `fraudguard
 - O perfil (média móvel) é atualizado de forma assíncrona e sem lock; é aproximado por natureza.
 - `usual_hours` é cadastrado manualmente; sem ele vale a faixa noturna padrão.
 - Terraform/ECS Fargate não incluídos; a imagem do `Dockerfile` é o artefato de deploy.
+
+## Demo online (Vercel)
+
+O simulador roda sem senha. Na Vercel, `api/index.py` (Python, só biblioteca padrão) reimplementa o motor de regras para a demonstração. Não é o serviço Java: não há PostgreSQL, Redis nem autenticação, e o estado fica na memória da função (some quando a Vercel a recicla). Se a função não responder, o simulador usa o mesmo motor em JavaScript no navegador. Testes: `python -m unittest discover -s tests_api`.

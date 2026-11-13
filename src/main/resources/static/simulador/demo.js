@@ -13,8 +13,38 @@ function ehHospedagemEstatica(host) {
 
 const MODO_DEMO = ehHospedagemEstatica(location.hostname) || new URLSearchParams(location.search).has("demo");
 
-function buscar(url, opcoes) {
-  return MODO_DEMO ? demoBuscar(url, opcoes) : fetch(url, opcoes);
+/*
+ * Na Vercel existe uma API de demonstração em Python (api/index.py). Se ela responder, o motor roda
+ * lá; se não (GitHub Pages, ou função indisponível), cai no motor deste arquivo, no navegador.
+ */
+let apiPython = null;
+
+function apiPythonDisponivel() {
+  if (apiPython === null) {
+    apiPython = location.hostname.endsWith(".vercel.app")
+      ? fetch("/api/index?p=/health", { cache: "no-store" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((j) => Boolean(j && j.engine === "python-demo"))
+        .catch(() => false)
+      : Promise.resolve(false);
+  }
+  return apiPython;
+}
+
+async function buscar(url, opcoes) {
+  if (!MODO_DEMO) {
+    return fetch(url, opcoes);
+  }
+  if (await apiPythonDisponivel()) {
+    const alvo = new URL(url, location.href);
+    return fetch("/api/index?p=" + encodeURIComponent(alvo.pathname + alvo.search), {
+      method: (opcoes && opcoes.method) || "GET",
+      headers: { "Content-Type": "application/json" },
+      body: opcoes && opcoes.body ? opcoes.body : undefined,
+      cache: "no-store",
+    });
+  }
+  return demoBuscar(url, opcoes);
 }
 
 const DEMO = {
