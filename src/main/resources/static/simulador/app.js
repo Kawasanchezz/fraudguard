@@ -28,8 +28,16 @@ const DISPOSITIVOS = ["iPhone 13", "Galaxy S23", "Moto G54", "Redmi Note 12", "P
 const DESTINATARIOS = ["Padaria Central", "Mercado Bom Preço", "Farmácia Saúde", "Posto Ipiranga", "Loja do Zé"];
 const LOCAIS = ["São Paulo - SP", "Rio de Janeiro - RJ", "Belo Horizonte - MG", "Curitiba - PR", "Recife - PE"];
 
+/** Sorteio sem viés: máscara de bits + rejeição, sem módulo nem escala. */
 function sorteio(lista) {
-  return lista[crypto.getRandomValues(new Uint8Array(1))[0] % lista.length];
+  const mascara = (1 << (32 - Math.clz32(lista.length - 1))) - 1;
+  const buffer = new Uint8Array(1);
+  let indice;
+  do {
+    crypto.getRandomValues(buffer);
+    indice = buffer[0] & mascara;
+  } while (indice >= lista.length);
+  return lista[indice];
 }
 
 function basic(usuario, segredo) {
