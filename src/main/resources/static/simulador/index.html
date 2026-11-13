@@ -106,9 +106,9 @@
       <div class="filtros-titulo">Dados da transação <span class="contador">5</span></div>
       <label class="campo"><span>Cliente</span><input id="cliente" maxlength="64" required></label>
       <label class="campo"><span>Valor (R$)</span><input id="valor" inputmode="decimal" required value="150.00"></label>
-      <label class="campo"><span>Localização</span><input id="local" maxlength="64" value="BR-SP"></label>
-      <label class="campo"><span>Dispositivo</span><input id="dispositivo" maxlength="128" value="dispositivo-1"></label>
-      <label class="campo"><span>Destinatário</span><input id="destinatario" maxlength="128" value="destinatario-1"></label>
+      <label class="campo"><span>Localização</span><input id="local" maxlength="64" value="São Paulo - SP"></label>
+      <label class="campo"><span>Dispositivo</span><input id="dispositivo" maxlength="128" value="iPhone 13"></label>
+      <label class="campo"><span>Destinatário</span><input id="destinatario" maxlength="128" value="Padaria Central"></label>
     </form>
 
     <main class="baixo">
@@ -153,6 +153,12 @@
                 <span class="rotulo">Cliente</span>
                 <div class="cliente-linha"><span id="d-avatar"></span><div id="d-cliente" class="id"></div></div>
               </div>
+            </div>
+
+            <div class="cabeca">
+              <div><span class="rotulo">Dispositivo</span><div id="d-dispositivo" class="canal-nome"></div></div>
+              <div><span class="rotulo">Localização</span><div id="d-local" class="canal-nome"></div></div>
+              <div><span class="rotulo">Destinatário</span><div id="d-destinatario" class="canal-nome"></div></div>
             </div>
 
             <div class="medidor" role="img" aria-label="Score de risco">
