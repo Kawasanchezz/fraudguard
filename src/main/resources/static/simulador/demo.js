@@ -6,15 +6,45 @@
  * este modo fica desligado e a API continua exigindo as senhas de cada perfil.
  */
 
-/** Só subdomínios reais do GitHub Pages: "evilgithub.io" não pode ligar o modo demo por parecer com github.io. */
-function ehGitHubPages(host) {
-  return host.endsWith(".github.io");
+/** Só subdomínios reais de hospedagem estática (com o ponto): "evilgithub.io" não liga o modo demo. */
+function ehHospedagemEstatica(host) {
+  return host.endsWith(".github.io") || host.endsWith(".vercel.app");
 }
 
-const MODO_DEMO = ehGitHubPages(location.hostname) || new URLSearchParams(location.search).has("demo");
+const MODO_DEMO = ehHospedagemEstatica(location.hostname) || new URLSearchParams(location.search).has("demo");
 
-function buscar(url, opcoes) {
-  return MODO_DEMO ? demoBuscar(url, opcoes) : fetch(url, opcoes);
+/*
+ * Na Vercel existe uma API de demonstração em Python (api/index.py). Se ela responder, o motor roda
+ * lá; se não (GitHub Pages, ou função indisponível), cai no motor deste arquivo, no navegador.
+ */
+let apiPython = null;
+
+function apiPythonDisponivel() {
+  if (apiPython === null) {
+    apiPython = location.hostname.endsWith(".vercel.app")
+      ? fetch("/api/index?p=/health", { cache: "no-store" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((j) => Boolean(j && j.engine === "python-demo"))
+        .catch(() => false)
+      : Promise.resolve(false);
+  }
+  return apiPython;
+}
+
+async function buscar(url, opcoes) {
+  if (!MODO_DEMO) {
+    return fetch(url, opcoes);
+  }
+  if (await apiPythonDisponivel()) {
+    const alvo = new URL(url, location.href);
+    return fetch("/api/index?p=" + encodeURIComponent(alvo.pathname + alvo.search), {
+      method: (opcoes && opcoes.method) || "GET",
+      headers: { "Content-Type": "application/json" },
+      body: opcoes && opcoes.body ? opcoes.body : undefined,
+      cache: "no-store",
+    });
+  }
+  return demoBuscar(url, opcoes);
 }
 
 const DEMO = {

@@ -87,6 +87,10 @@ A decisão registra o motivo `FAILSAFE_CACHE_UNAVAILABLE`. Limiar em `fraudguard
 - `usual_hours` é cadastrado manualmente; sem ele vale a faixa noturna padrão.
 - Terraform/ECS Fargate não incluídos; a imagem do `Dockerfile` é o artefato de deploy.
 
+## Demo online (Vercel)
+
+O simulador roda sem senha. Na Vercel, `api/index.py` (Python, só biblioteca padrão) reimplementa o motor de regras para a demonstração. Não é o serviço Java: não há PostgreSQL, Redis nem autenticação, e o estado fica na memória da função (some quando a Vercel a recicla). Se a função não responder, o simulador usa o mesmo motor em JavaScript no navegador. Testes: `python -m unittest discover -s tests_api`.
+
 ## Ciclo de feedback (desfecho real)
 
 A decisão guarda o score, as regras e a `ruleset_version`. O desfecho vindo do cliente ou do adquirente (chargeback, contestação improcedente) é gravado na tabela `decision_outcome`, ligado pela `transaction_id`, e comparado com a decisão original:
