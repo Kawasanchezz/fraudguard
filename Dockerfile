@@ -5,7 +5,7 @@ RUN mvn -B -ntp dependency:go-offline
 COPY src ./src
 RUN mvn -B -ntp -DskipTests package
 
-FROM eclipse-temurin:24-jre-alpine@sha256:4044b6c87cb088885bcd0220f7dc7a8a4aab76577605fa471945d2e98270741f
+FROM eclipse-temurin:25-jre-alpine@sha256:e1898fd6a11fc965a994d8ace186fd3585aeb636cf8f05f47a723fcfee0b0918
 RUN apk upgrade --no-cache \
  && addgroup -S -g 10001 fraud \
  && adduser -S -u 10001 -G fraud -H fraud
